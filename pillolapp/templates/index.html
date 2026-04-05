@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2563eb">
   <title>PillolAPP</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/css/style.css?v=5">
   <link rel="manifest" href="/static/manifest.json">
 </head>
@@ -25,6 +29,9 @@
           title="Aggiorna database farmaci AIFA">
     💊 DB AIFA
   </button>
+  <a href="/logout" style="background:rgba(255,255,255,0.1);color:white;border:none;
+     margin-left:0.4rem;padding:0.3rem 0.7rem;border-radius:8px;font-size:0.8rem;
+     text-decoration:none;">🚪 Esci</a>
 </header>
 
 <!-- TABS -->
@@ -94,6 +101,7 @@
   <div id="tab-scorte" class="hidden">
     <div class="flex-between mt-md mb-md">
       <span class="card-title">Scorte farmaci</span>
+      <button class="btn btn-primary btn-sm" onclick="apriFormScorta()">+ Nuova scorta</button>
     </div>
     <div class="form-group">
       <select class="form-control form-select" id="sel-paziente-scorte" onchange="caricaScorte()">
@@ -181,8 +189,15 @@
       </div>
       <div class="form-group" style="margin-bottom:0;">
         <label class="form-label">Password</label>
-        <input type="password" class="form-control" id="paz-password" placeholder="Minimo 6 caratteri"
-               autocomplete="new-password">
+        <div style="position:relative;">
+          <input type="password" class="form-control" id="paz-password"
+                 placeholder="Minimo 6 caratteri" autocomplete="new-password"
+                 style="padding-right:2.5rem;">
+          <button type="button" onclick="togglePwd('paz-password',this)"
+                  style="position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);
+                         background:none;border:none;cursor:pointer;font-size:1rem;
+                         color:#94a3b8;padding:0;">👁</button>
+        </div>
       </div>
     </div>
 
@@ -212,6 +227,101 @@
     <div class="flex gap-sm mt-md">
       <button class="btn btn-ghost btn-block" onclick="chiudiModal('modal-paziente')">Annulla</button>
       <button class="btn btn-primary btn-block" onclick="salvaPaziente()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: RESET PASSWORD ══════════════ -->
+<div class="modal-overlay" id="modal-reset-pwd">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔑 Reset password</div>
+    <input type="hidden" id="reset-paziente-id">
+    <p style="color:#64748b;font-size:0.85rem;margin-bottom:1rem;">
+      Stai reimpostando la password di <b id="reset-paziente-nome"></b>
+    </p>
+    <div class="form-group">
+      <label class="form-label">Nuova password</label>
+      <div style="position:relative;">
+        <input type="password" class="form-control" id="reset-pwd-nuova"
+               placeholder="Minimo 6 caratteri" style="padding-right:2.5rem;">
+        <button type="button" onclick="togglePwd('reset-pwd-nuova',this)"
+                style="position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);
+                       background:none;border:none;cursor:pointer;font-size:1rem;
+                       color:#94a3b8;padding:0;">👁</button>
+      </div>
+    </div>
+    <div class="flex gap-sm mt-md">
+      <button class="btn btn-ghost btn-block" onclick="chiudiModal('modal-reset-pwd')">Annulla</button>
+      <button class="btn btn-primary btn-block" onclick="salvaResetPassword()">Reimposta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: NUOVA SCORTA ══════════════ -->
+<div class="modal-overlay" id="modal-scorta">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Registra scorta</div>
+
+    <div class="form-group">
+      <label class="form-label">Paziente *</label>
+      <select class="form-control form-select" id="scorta-paziente">
+        <option value="">— Seleziona —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">AIC farmaco *</label>
+      <div class="flex gap-sm">
+        <input type="text" class="form-control" id="scorta-aic" placeholder="es. 033656">
+        <button class="btn btn-ghost btn-sm" onclick="lookupScortaAIC()">Cerca</button>
+      </div>
+      <div id="scorta-farmaco-trovato" class="hidden" style="margin-top:0.4rem;
+           background:#f0fdf4;border-radius:8px;padding:0.5rem 0.75rem;font-size:0.85rem;">
+        <span id="scorta-farmaco-nome" style="font-weight:600;color:#166534;"></span>
+      </div>
+      <!-- Inserimento manuale se AIC non trovato -->
+      <div id="scorta-manuale" class="hidden" style="margin-top:0.5rem;">
+        <div style="font-size:0.78rem;color:#dc2626;margin-bottom:0.4rem;">
+          ⚠️ AIC non trovato — inserisci il nome manualmente
+        </div>
+        <input type="text" class="form-control" id="scorta-nome-manuale"
+               placeholder="Nome farmaco (es. Enantyum 25mg)">
+      </div>
+      <input type="hidden" id="scorta-farmaco-id">
+    </div>
+    <div class="flex gap-sm">
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Quantità *</label>
+        <input type="number" class="form-control" id="scorta-quantita" min="0" placeholder="es. 30">
+      </div>
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Unità</label>
+        <select class="form-control form-select" id="scorta-unita">
+          <option value="compresse">compresse</option>
+          <option value="capsule">capsule</option>
+          <option value="fiale">fiale</option>
+          <option value="ml">ml</option>
+          <option value="pezzi">pezzi</option>
+          <option value="buste">buste</option>
+          <option value="cerotti">cerotti</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex gap-sm">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Soglia minima *</label>
+        <input type="number" class="form-control" id="scorta-soglia" min="1" placeholder="es. 7">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Scadenza</label>
+        <input type="date" class="form-control" id="scorta-scadenza">
+      </div>
+    </div>
+
+    <div class="flex gap-sm mt-md">
+      <button class="btn btn-ghost btn-block" onclick="chiudiModal('modal-scorta')">Annulla</button>
+      <button class="btn btn-primary btn-block" onclick="salvaScorta()">Salva</button>
     </div>
   </div>
 </div>
@@ -346,7 +456,7 @@
     </div>
 
     <div class="flex gap-sm mt-md">
-      <button class="btn btn-ghost btn-block" onclick="chiudiModal('modal-terapia')">Annulla</button>
+      <button class="btn btn-ghost btn-block" onclick="fermaCamera();chiudiModal('modal-terapia')">Annulla</button>
       <button class="btn btn-primary btn-block" onclick="salvaTerapia()">Salva terapia</button>
     </div>
   </div>
@@ -374,6 +484,12 @@ function showTab(name) {
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────
+function togglePwd(id, btn) {
+  const el = document.getElementById(id);
+  if (el.type === 'password') { el.type = 'text'; btn.textContent = '🙈'; }
+  else { el.type = 'password'; btn.textContent = '👁'; }
+}
+
 async function api(path, method='GET', body=null) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
   if (body) opts.body = JSON.stringify(body);
@@ -392,7 +508,10 @@ function toast(msg, type='') {
 
 // ── Modal ─────────────────────────────────────────────────────────────────
 function apriModal(id) { document.getElementById(id).classList.add('open'); }
-function chiudiModal(id) { document.getElementById(id).classList.remove('open'); }
+function chiudiModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if (id === 'modal-terapia') fermaCamera();
+}
 
 // ── Pazienti ──────────────────────────────────────────────────────────────
 async function caricaPazienti() {
@@ -415,7 +534,9 @@ async function caricaPazienti() {
         </div>
       </div>
       <div class="item-actions">
-        <a href="/paziente/${p.id}" class="btn btn-ghost btn-sm" target="_blank">Apri</a>
+        <a href="/paziente/${p.id}" class="btn btn-ghost btn-sm">Apri</a>
+        <button class="btn btn-ghost btn-icon" title="Reset password"
+                onclick="apriResetPassword(${p.id},'${p.nome}')">🔑</button>
         <button class="btn btn-ghost btn-icon" onclick="eliminaPaziente(${p.id})">🗑️</button>
       </div>
     </li>`).join('') + '</ul>';
@@ -454,9 +575,9 @@ async function _caricaInfoBot() {
     const box = document.getElementById('bot-info-box');
     const link = document.getElementById('bot-nome-link');
     if (loading) loading.style.display = 'none';
-    if (r && r.username) {
-      if (link) link.innerHTML = ` <a href="https://t.me/${r.username}" target="_blank"
-        style="font-weight:700;color:#1d4ed8;">@${r.username}</a>`;
+    if (r && r.bot && r.bot.username) {
+      if (link) link.innerHTML = ` <a href="https://t.me/${r.bot.username}" target="_blank"
+        style="font-weight:700;color:#1d4ed8;">@${r.bot.username}</a>`;
       if (box) box.style.display = '';
     } else if (loading) {
       loading.textContent = '⚠️ Bot non configurato — imposta il token nelle impostazioni';
@@ -513,6 +634,29 @@ async function eliminaPaziente(id) {
   await api('/api/pazienti/' + id, 'DELETE');
   toast('Paziente disattivato');
   await caricaPazienti();
+}
+
+function apriResetPassword(pazId, nome) {
+  document.getElementById('reset-paziente-id').value = pazId;
+  document.getElementById('reset-paziente-nome').textContent = nome;
+  document.getElementById('reset-pwd-nuova').value = '';
+  apriModal('modal-reset-pwd');
+}
+
+async function salvaResetPassword() {
+  const pazId = document.getElementById('reset-paziente-id').value;
+  const nuova = document.getElementById('reset-pwd-nuova').value;
+  if (nuova.length < 6) { toast('Password minimo 6 caratteri', 'error'); return; }
+
+  // Trova l'utente collegato al paziente
+  const utenti = await api('/api/utenti');
+  const utente = utenti.find(u => u.paziente_id == pazId);
+  if (!utente) { toast('Nessun account collegato a questo paziente', 'error'); return; }
+
+  const r = await api(`/api/utenti/${utente.id}/password`, 'PUT', { password: nuova });
+  if (r.error) { toast('Errore: ' + r.error, 'error'); return; }
+  chiudiModal('modal-reset-pwd');
+  toast('Password reimpostata ✓', 'success');
 }
 
 // ── Terapie ───────────────────────────────────────────────────────────────
@@ -695,6 +839,74 @@ async function eliminaTerapia(id) {
 }
 
 // ── Scorte ────────────────────────────────────────────────────────────────
+function apriFormScorta() {
+  ['scorta-aic','scorta-quantita','scorta-soglia','scorta-scadenza'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('scorta-farmaco-id').value = '';
+  document.getElementById('scorta-farmaco-trovato').classList.add('hidden');
+  // Popola select paziente
+  const sel = document.getElementById('scorta-paziente');
+  const selScorte = document.getElementById('sel-paziente-scorte');
+  sel.innerHTML = selScorte.innerHTML;
+  apriModal('modal-scorta');
+}
+
+async function lookupScortaAIC() {
+  const aic = document.getElementById('scorta-aic').value.trim();
+  if (!aic) { toast('Inserisci un AIC', 'error'); return; }
+  document.getElementById('scorta-manuale').classList.add('hidden');
+  document.getElementById('scorta-farmaco-trovato').classList.add('hidden');
+  document.getElementById('scorta-farmaco-id').value = '';
+  const r = await api('/api/farmaci/lookup', 'POST', { aic });
+  if (r.error) {
+    // Mostra campo inserimento manuale
+    document.getElementById('scorta-manuale').classList.remove('hidden');
+    document.getElementById('scorta-nome-manuale').value = '';
+    document.getElementById('scorta-nome-manuale').focus();
+    return;
+  }
+  document.getElementById('scorta-farmaco-id').value = r.farmaco.id;
+  document.getElementById('scorta-farmaco-nome').textContent = r.farmaco.nome;
+  document.getElementById('scorta-farmaco-trovato').classList.remove('hidden');
+}
+
+async function salvaScorta() {
+  const pid      = document.getElementById('scorta-paziente').value;
+  const fid      = document.getElementById('scorta-farmaco-id').value;
+  const quantita = document.getElementById('scorta-quantita').value;
+  const unita    = document.getElementById('scorta-unita').value;
+  const soglia   = document.getElementById('scorta-soglia').value;
+  const scadenza = document.getElementById('scorta-scadenza').value;
+  const aic      = document.getElementById('scorta-aic').value.trim();
+  const nomeManuale = document.getElementById('scorta-nome-manuale')?.value.trim() || '';
+
+  if (!pid)      { toast('Seleziona un paziente', 'error'); return; }
+  if (!quantita) { toast('Inserisci la quantità', 'error'); return; }
+  if (!soglia)   { toast('Inserisci la soglia minima', 'error'); return; }
+
+  // Determina farmaco_id
+  let farmaco_id = fid;
+  if (!farmaco_id) {
+    const nome = nomeManuale || (aic ? `Farmaco AIC ${aic}` : '');
+    if (!nome) { toast('Inserisci il nome del farmaco', 'error'); return; }
+    const r = await api('/api/farmaci', 'POST', { nome, aic: aic || null });
+    farmaco_id = r.id;
+  }
+
+  await api('/api/scorte', 'POST', {
+    paziente_id: parseInt(pid),
+    farmaco_id: parseInt(farmaco_id),
+    quantita: parseFloat(quantita),
+    unita,
+    soglia_minima: parseInt(soglia),
+    scadenza: scadenza || null,
+  });
+  chiudiModal('modal-scorta');
+  toast('Scorta registrata ✓', 'success');
+  caricaScorte();
+}
+
 async function caricaScorte() {
   const pid = document.getElementById('sel-paziente-scorte').value;
   if (!pid) return;

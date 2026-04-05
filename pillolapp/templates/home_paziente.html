@@ -6,26 +6,32 @@
   <meta name="theme-color" content="#2563eb">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>I miei farmaci — {{ paziente.nome }}</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/css/style.css?v=5">
   <style>
-    .terapia-card {
-      background: white; border-radius: 16px; padding: 1.25rem;
-      margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      border-left: 4px solid var(--primary);
-    }
-    .terapia-card.presa { border-left-color: var(--success); opacity: 0.7; }
-    .terapia-card.non-presa { border-left-color: var(--danger); }
-    .terapia-nome { font-weight: 700; font-size: 1.05rem; color: #1e293b; }
-    .terapia-info { color: #64748b; font-size: 0.85rem; margin-top: 0.2rem; }
-    .terapia-orari { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
-    .orario-badge { background: #eff6ff; color: #2563eb; border-radius: 20px;
-                    padding: 0.2rem 0.6rem; font-size: 0.8rem; font-weight: 600; }
-    .oggi-header { font-size: 0.9rem; color: #64748b; margin-bottom: 0.5rem;
-                   text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-    .empty-day { text-align: center; padding: 2rem; color: #94a3b8; }
-    .avatar-circle { width: 52px; height: 52px; border-radius: 50%;
-                     display: flex; align-items: center; justify-content: center;
-                     font-weight: 700; font-size: 1rem; color: white; flex-shrink: 0; }
+    .terapia-card { background:white;border-radius:16px;padding:1.25rem;
+      margin-bottom:1rem;box-shadow:0 2px 8px rgba(0,0,0,0.08);
+      border-left:4px solid var(--primary); }
+    .terapia-card.presa { border-left-color:var(--success);opacity:0.75; }
+    .terapia-card.non-presa { border-left-color:var(--danger); }
+    .terapia-nome { font-weight:700;font-size:1.05rem;color:#1e293b; }
+    .terapia-info { color:#64748b;font-size:0.85rem;margin-top:0.2rem; }
+    .terapia-orari { display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.5rem; }
+    .orario-badge { background:#eff6ff;color:#2563eb;border-radius:20px;
+      padding:0.2rem 0.6rem;font-size:0.8rem;font-weight:600; }
+    .oggi-header { font-size:0.9rem;color:#64748b;margin-bottom:0.5rem;
+      text-transform:uppercase;letter-spacing:0.05em;font-weight:600; }
+    .empty-day { text-align:center;padding:2rem;color:#94a3b8; }
+    .avatar-circle { width:48px;height:48px;border-radius:50%;display:flex;
+      align-items:center;justify-content:center;font-weight:700;
+      font-size:1rem;color:white;flex-shrink:0; }
+    .conferma-btn { background:#22c55e;color:white;border:none;border-radius:10px;
+      padding:0.5rem 1rem;font-size:0.85rem;font-weight:600;cursor:pointer;
+      margin-top:0.5rem;width:100%; }
+    .conferma-btn:disabled { background:#94a3b8;cursor:not-allowed; }
   </style>
 </head>
 <body>
@@ -34,11 +40,13 @@
   <div class="header-icon">👤</div>
   <div>
     <h1>{{ paziente.nome }} {{ paziente.cognome }}</h1>
-    <div class="subtitle">I miei farmaci</div>
+    <div class="subtitle">
+      {% if paziente.profilo == 'autosufficiente' %}I miei farmaci{% else %}Le mie terapie{% endif %}
+    </div>
   </div>
   <a href="/logout" style="margin-left:auto;color:rgba(255,255,255,0.7);font-size:0.8rem;
      text-decoration:none;background:rgba(255,255,255,0.15);padding:0.3rem 0.7rem;
-     border-radius:20px;">Esci</a>
+     border-radius:20px;">🚪 Esci</a>
 </header>
 
 <div class="container">
@@ -46,34 +54,126 @@
   <!-- Terapie di oggi -->
   <div class="mt-md">
     <div class="oggi-header" id="oggi-label">Oggi</div>
-    <div id="terapie-oggi">
-      <div class="empty-day">⏳ Caricamento...</div>
-    </div>
+    <div id="terapie-oggi"><div class="empty-day">⏳ Caricamento...</div></div>
   </div>
 
-  <!-- Prossimi farmaci -->
+  <!-- Tutte le terapie -->
   <div class="mt-md">
     <div class="oggi-header">Tutte le terapie attive</div>
-    <div id="terapie-tutte">
-      <div class="empty-day">⏳ Caricamento...</div>
-    </div>
+    <div id="terapie-tutte"><div class="empty-day">⏳ Caricamento...</div></div>
   </div>
 
-  <!-- Scorte -->
+  <!-- Scorte — solo autosufficiente -->
+  {% if paziente.profilo == 'autosufficiente' %}
+  <div class="mt-md">
+    <div class="flex-between mb-sm">
+      <div class="oggi-header" style="margin-bottom:0;">Scorte</div>
+      <button onclick="apriAggiungiScorta()"
+              style="background:#2563eb;color:white;border:none;border-radius:8px;
+                     padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;">
+        + Aggiungi
+      </button>
+    </div>
+    <div id="scorte-box"><div class="empty-day">⏳ Caricamento...</div></div>
+  </div>
+
+  <!-- Form aggiunta scorta (solo autosufficiente) -->
+  <div id="form-scorta" class="hidden mt-md"
+       style="background:white;border-radius:16px;padding:1.25rem;
+              box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="font-weight:600;margin-bottom:0.75rem;">📦 Aggiorna scorta</div>
+    <div class="form-group">
+      <label class="form-label">AIC farmaco</label>
+      <div class="flex gap-sm">
+        <input type="text" class="form-control" id="sc-aic" placeholder="es. 033656">
+        <button class="btn btn-ghost btn-sm" onclick="cercaFarmacoScorta()">Cerca</button>
+      </div>
+      <div id="sc-farmaco-info" class="hidden"
+           style="margin-top:0.4rem;background:#f0fdf4;border-radius:8px;
+                  padding:0.5rem;font-size:0.85rem;color:#166534;font-weight:600;"></div>
+      <input type="hidden" id="sc-farmaco-id">
+    </div>
+    <div class="flex gap-sm">
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Quantità</label>
+        <input type="number" class="form-control" id="sc-quantita" min="0" placeholder="es. 30">
+      </div>
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Unità</label>
+        <select class="form-control form-select" id="sc-unita">
+          <option value="compresse">compresse</option>
+          <option value="capsule">capsule</option>
+          <option value="fiale">fiale</option>
+          <option value="ml">ml</option>
+          <option value="pezzi">pezzi</option>
+          <option value="buste">buste</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex gap-sm">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Soglia min.</label>
+        <input type="number" class="form-control" id="sc-soglia" min="1" placeholder="es. 7">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Scadenza</label>
+        <input type="date" class="form-control" id="sc-scadenza">
+      </div>
+    </div>
+    <div class="flex gap-sm">
+      <button class="btn btn-ghost btn-block"
+              onclick="document.getElementById('form-scorta').classList.add('hidden')">
+        Annulla
+      </button>
+      <button class="btn btn-primary btn-block" onclick="salvaScortaPaziente()">Salva</button>
+    </div>
+  </div>
+  {% else %}
+  <!-- Scorte in sola lettura per paziente assistito -->
   <div class="mt-md">
     <div class="oggi-header">Scorte</div>
-    <div id="scorte-box">
-      <div class="empty-day">⏳ Caricamento...</div>
+    <div id="scorte-box"><div class="empty-day">⏳ Caricamento...</div></div>
+  </div>
+  {% endif %}
+
+  <!-- Cambio password -->
+  <div class="mt-md">
+    <div class="oggi-header">Impostazioni account</div>
+    <div style="background:white;border-radius:16px;padding:1.25rem;
+                box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+      <div style="font-weight:600;font-size:0.95rem;margin-bottom:0.75rem;">🔑 Cambia password</div>
+      <div class="form-group">
+        <label class="form-label" style="font-size:0.8rem;">Password attuale</label>
+        <div style="position:relative;">
+          <input type="password" class="form-control" id="pwd-attuale"
+                 placeholder="Password attuale" style="padding-right:2.5rem;">
+          <button type="button" onclick="togglePwd('pwd-attuale',this)"
+                  style="position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);
+                         background:none;border:none;cursor:pointer;color:#94a3b8;">👁</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="font-size:0.8rem;">Nuova password</label>
+        <div style="position:relative;">
+          <input type="password" class="form-control" id="pwd-nuova"
+                 placeholder="Minimo 6 caratteri" style="padding-right:2.5rem;">
+          <button type="button" onclick="togglePwd('pwd-nuova',this)"
+                  style="position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);
+                         background:none;border:none;cursor:pointer;color:#94a3b8;">👁</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="cambiaPwd()">Aggiorna password</button>
+      <div id="pwd-msg" style="margin-top:0.5rem;font-size:0.82rem;text-align:center;"></div>
     </div>
   </div>
 
 </div>
 
 <div class="toast-container" id="toast-container"></div>
-
 <script src="/static/js/farmaco-avatar.js"></script>
 <script>
 const PAZIENTE_ID = {{ paziente.id }};
+const PROFILO     = '{{ paziente.profilo }}';
 const GIORNI_IT   = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
 const MESI_IT     = ['gennaio','febbraio','marzo','aprile','maggio','giugno',
                      'luglio','agosto','settembre','ottobre','novembre','dicembre'];
@@ -81,8 +181,7 @@ const MESI_IT     = ['gennaio','febbraio','marzo','aprile','maggio','giugno',
 async function api(path, method='GET', body=null) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
   if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(path, opts);
-  return r.json();
+  return (await fetch(path, opts)).json();
 }
 
 function toast(msg, type='') {
@@ -93,44 +192,47 @@ function toast(msg, type='') {
   setTimeout(() => t.remove(), 3000);
 }
 
-// Aggiorna header con data di oggi
-function aggiornaData() {
-  const ora = new Date();
-  const giornoNome = GIORNI_IT[ora.getDay() === 0 ? 6 : ora.getDay() - 1];
-  const label = `${giornoNome} ${ora.getDate()} ${MESI_IT[ora.getMonth()]} ${ora.getFullYear()}`;
-  document.getElementById('oggi-label').textContent = label;
+function togglePwd(id, btn) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+  btn.textContent = el.type === 'password' ? '👁' : '🙈';
 }
 
-// Carica terapie del giorno
+function aggiornaData() {
+  const ora = new Date();
+  const g = GIORNI_IT[ora.getDay() === 0 ? 6 : ora.getDay() - 1];
+  document.getElementById('oggi-label').textContent =
+    `${g} ${ora.getDate()} ${MESI_IT[ora.getMonth()]} ${ora.getFullYear()}`;
+}
+
 async function caricaOggi() {
-  const terapie = await api('/api/terapie/' + PAZIENTE_ID);
-  const assunzioni = await api('/api/assunzioni/' + PAZIENTE_ID + '?giorni=1');
+  const [terapie, assunzioni] = await Promise.all([
+    api('/api/terapie/' + PAZIENTE_ID),
+    api('/api/assunzioni/' + PAZIENTE_ID + '?giorni=1')
+  ]);
   const el = document.getElementById('terapie-oggi');
-
-  if (!terapie.length) {
-    el.innerHTML = '<div class="empty-day">✅ Nessuna terapia oggi</div>';
-    return;
-  }
-
-  const oggi = new Date().getDay(); // 0=dom, 1=lun, ...
-  const oggiIndice = oggi === 0 ? 6 : oggi - 1; // 0=lun
-
-  const terapieOggi = terapie.filter(t => {
-    const giorni = JSON.parse(t.giorni_settimana || 'null');
-    return !giorni || giorni.includes(oggiIndice);
+  const oggiIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  const oggi = terapie.filter(t => {
+    const g = JSON.parse(t.giorni_settimana || 'null');
+    return !g || g.includes(oggiIdx);
   });
+  if (!oggi.length) { el.innerHTML = '<div class="empty-day">✅ Nessuna terapia per oggi</div>'; return; }
 
-  if (!terapieOggi.length) {
-    el.innerHTML = '<div class="empty-day">✅ Nessuna terapia per oggi</div>';
-    return;
-  }
+  el.innerHTML = oggi.map(t => {
+    const orari    = JSON.parse(t.orari || '[]');
+    const assunta  = assunzioni.find(a => a.terapia_id === t.id && a.esito === 'SI');
+    const rifiutata= assunzioni.find(a => a.terapia_id === t.id && a.esito === 'NO');
+    const pendente = assunzioni.find(a => a.terapia_id === t.id && a.esito === 'PENDENTE');
+    const stato    = assunta ? 'presa' : rifiutata ? 'non-presa' : '';
+    const colore   = t.colore_avatar || '#2563eb';
 
-  el.innerHTML = terapieOggi.map(t => {
-    const orari = JSON.parse(t.orari || '[]');
-    const assunta = assunzioni.find(a => a.terapia_id === t.id && a.esito === 'SI');
-    const rifiutata = assunzioni.find(a => a.terapia_id === t.id && a.esito === 'NO');
-    const stato = assunta ? 'presa' : rifiutata ? 'non-presa' : '';
-    const colore = t.colore_avatar || '#2563eb';
+    // Bottone conferma solo per autosufficiente e se c'è un'assunzione pendente
+    const mostraBtn = PROFILO === 'autosufficiente' && pendente && !assunta;
+    const btnConferma = mostraBtn
+      ? `<button class="conferma-btn" onclick="confermaMio(${pendente.id}, this)">
+           ✅ Ho preso il farmaco
+         </button>`
+      : '';
 
     return `<div class="terapia-card ${stato}">
       <div class="flex gap-sm" style="align-items:flex-start;">
@@ -139,79 +241,134 @@ async function caricaOggi() {
         </div>
         <div style="flex:1;">
           <div class="terapia-nome">${t.farmaco_nome}</div>
-          <div class="terapia-info">${t.dose}
-            ${t.principio_attivo ? '· ' + t.principio_attivo : ''}
-          </div>
-          <div class="terapia-orari">
-            ${orari.map(o => `<span class="orario-badge">⏰ ${o}</span>`).join('')}
-          </div>
-          ${stato === 'presa' ? '<div style="color:var(--success);font-size:0.8rem;margin-top:0.3rem;">✅ Assunto oggi</div>' : ''}
-          ${stato === 'non-presa' ? '<div style="color:var(--danger);font-size:0.8rem;margin-top:0.3rem;">❌ Non assunto</div>' : ''}
-          ${t.note ? `<div style="color:#94a3b8;font-size:0.75rem;margin-top:0.3rem;">ℹ️ ${t.note}</div>` : ''}
+          <div class="terapia-info">${t.dose}${t.principio_attivo ? ' · ' + t.principio_attivo : ''}</div>
+          <div class="terapia-orari">${orari.map(o=>`<span class="orario-badge">⏰ ${o}</span>`).join('')}</div>
+          ${assunta   ? '<div style="color:#16a34a;font-size:0.8rem;margin-top:0.3rem;">✅ Assunto oggi</div>' : ''}
+          ${rifiutata ? '<div style="color:#dc2626;font-size:0.8rem;margin-top:0.3rem;">❌ Non assunto</div>' : ''}
+          ${t.note    ? `<div style="color:#94a3b8;font-size:0.75rem;margin-top:0.3rem;">ℹ️ ${t.note}</div>` : ''}
+          ${btnConferma}
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-// Carica tutte le terapie attive
+async function confermaMio(assId, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Registrazione...';
+  await api(`/api/assunzioni/${assId}/risposta`, 'POST', { esito: 'SI' });
+  toast('✅ Assunzione confermata!', 'success');
+  caricaOggi();
+}
+
 async function caricaTutte() {
   const terapie = await api('/api/terapie/' + PAZIENTE_ID);
   const el = document.getElementById('terapie-tutte');
-
-  if (!terapie.length) {
-    el.innerHTML = '<div class="empty-day">Nessuna terapia attiva</div>';
-    return;
-  }
-
+  if (!terapie.length) { el.innerHTML = '<div class="empty-day">Nessuna terapia attiva</div>'; return; }
   el.innerHTML = '<ul class="item-list">' + terapie.map(t => {
-    const orari = JSON.parse(t.orari || '[]');
+    const orari  = JSON.parse(t.orari || '[]');
     const giorni = JSON.parse(t.giorni_settimana || 'null');
     const colore = t.colore_avatar || '#2563eb';
-    const giorniLabel = giorni && giorni.length < 7
+    const gl = giorni && giorni.length < 7
       ? giorni.map(g => ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'][g]).join(', ')
       : 'Tutti i giorni';
-
     return `<li class="item-row">
       <div class="item-icon" style="background:${colore};color:white;font-weight:700;font-size:0.75rem;">
-        ${t.farmaco_nome.substring(0,2).toUpperCase()}
-      </div>
+        ${t.farmaco_nome.substring(0,2).toUpperCase()}</div>
       <div class="item-body">
         <div class="item-title">${t.farmaco_nome}</div>
         <div class="item-meta">${t.dose} · ${orari.map(o=>'⏰'+o).join(' ')}</div>
-        <div class="item-meta" style="font-size:0.75rem;">${giorniLabel}</div>
+        <div class="item-meta" style="font-size:0.75rem;">${gl}</div>
       </div>
     </li>`;
   }).join('') + '</ul>';
 }
 
-// Carica scorte
 async function caricaScorte() {
   const scorte = await api('/api/scorte/' + PAZIENTE_ID);
   const el = document.getElementById('scorte-box');
-
-  if (!scorte.length) {
-    el.innerHTML = '<div class="empty-day">Nessuna scorta registrata</div>';
-    return;
-  }
-
-  let html = '<ul class="item-list">';
-  scorte.forEach(s => {
+  if (!scorte.length) { el.innerHTML = '<div class="empty-day">Nessuna scorta registrata</div>'; return; }
+  el.innerHTML = '<ul class="item-list">' + scorte.map(s => {
     const bassa = s.quantita <= s.soglia_minima;
-    html += `<li class="item-row">
+    return `<li class="item-row">
       <div class="item-icon ${bassa ? 'red' : 'green'}">${bassa ? '⚠️' : '💊'}</div>
       <div class="item-body">
         <div class="item-title">${s.farmaco_nome}</div>
-        <div class="item-meta">
-          ${s.quantita} ${s.unita} rimaste
+        <div class="item-meta">${s.quantita} ${s.unita} rimaste
           ${s.scadenza ? ' · scade: ' + s.scadenza : ''}
-          ${bassa ? ' · <span style="color:var(--danger)">SCORTA BASSA</span>' : ''}
+          ${bassa ? ' · <span style="color:#dc2626">SCORTA BASSA</span>' : ''}
         </div>
       </div>
     </li>`;
+  }).join('') + '</ul>';
+}
+
+// Scorte — solo autosufficiente
+function apriAggiungiScorta() {
+  document.getElementById('form-scorta').classList.remove('hidden');
+  ['sc-aic','sc-quantita','sc-soglia','sc-scadenza'].forEach(id => {
+    document.getElementById(id).value = '';
   });
-  html += '</ul>';
-  el.innerHTML = html;
+  document.getElementById('sc-farmaco-id').value = '';
+  document.getElementById('sc-farmaco-info').classList.add('hidden');
+}
+
+async function cercaFarmacoScorta() {
+  const aic = document.getElementById('sc-aic').value.trim();
+  if (!aic) { toast('Inserisci un AIC', 'error'); return; }
+  const r = await api('/api/farmaci/lookup', 'POST', { aic });
+  if (r.error) { toast('Farmaco non trovato', 'error'); return; }
+  document.getElementById('sc-farmaco-id').value = r.farmaco.id;
+  const info = document.getElementById('sc-farmaco-info');
+  info.textContent = r.farmaco.nome;
+  info.classList.remove('hidden');
+}
+
+async function salvaScortaPaziente() {
+  const fid      = document.getElementById('sc-farmaco-id').value;
+  const quantita = document.getElementById('sc-quantita').value;
+  const unita    = document.getElementById('sc-unita').value;
+  const soglia   = document.getElementById('sc-soglia').value;
+  const scadenza = document.getElementById('sc-scadenza').value;
+  const aic      = document.getElementById('sc-aic').value.trim();
+
+  if (!quantita || !soglia) { toast('Quantità e soglia obbligatorie', 'error'); return; }
+
+  let farmaco_id = fid;
+  if (!farmaco_id && aic) {
+    const r = await api('/api/farmaci', 'POST', { nome: `Farmaco AIC ${aic}`, aic });
+    farmaco_id = r.id;
+  }
+  if (!farmaco_id) { toast('Cerca prima il farmaco tramite AIC', 'error'); return; }
+
+  await api('/api/scorte', 'POST', {
+    paziente_id: PAZIENTE_ID,
+    farmaco_id: parseInt(farmaco_id),
+    quantita: parseFloat(quantita),
+    unita, soglia_minima: parseInt(soglia),
+    scadenza: scadenza || null,
+  });
+  document.getElementById('form-scorta').classList.add('hidden');
+  toast('Scorta registrata ✓', 'success');
+  caricaScorte();
+}
+
+async function cambiaPwd() {
+  const attuale = document.getElementById('pwd-attuale').value;
+  const nuova   = document.getElementById('pwd-nuova').value;
+  const msg     = document.getElementById('pwd-msg');
+  if (!attuale || !nuova) { msg.style.color='#dc2626'; msg.textContent='Compila entrambi i campi'; return; }
+  if (nuova.length < 6)   { msg.style.color='#dc2626'; msg.textContent='Minimo 6 caratteri'; return; }
+  const r = await fetch('/api/utenti/cambia-pwd', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ password_attuale: attuale, password_nuova: nuova })
+  }).then(r => r.json());
+  if (r.error) { msg.style.color='#dc2626'; msg.textContent=r.error; }
+  else {
+    msg.style.color='#16a34a'; msg.textContent='✅ Password aggiornata!';
+    document.getElementById('pwd-attuale').value='';
+    document.getElementById('pwd-nuova').value='';
+  }
 }
 
 // Init
@@ -219,7 +376,6 @@ aggiornaData();
 caricaOggi();
 caricaTutte();
 caricaScorte();
-// Aggiorna ogni minuto
 setInterval(() => { caricaOggi(); }, 60000);
 </script>
 </body>

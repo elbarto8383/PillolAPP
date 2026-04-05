@@ -182,6 +182,37 @@ def static_files(path):
 # API — PAZIENTI
 # ═══════════════════════════════════════════════════════════════════════════
 
+@app.route("/api/utenti/cambia-pwd", methods=["POST"])
+@login_required
+def cambia_pwd_autonomo():
+    """Il paziente cambia la propria password verificando quella attuale."""
+    data = request.get_json()
+    pwd_attuale = data.get("password_attuale", "")
+    pwd_nuova   = data.get("password_nuova", "")
+
+    if not pwd_attuale or not pwd_nuova:
+        return jsonify({"error": "Compila entrambi i campi"}), 400
+    if len(pwd_nuova) < 6:
+        return jsonify({"error": "La nuova password deve avere almeno 6 caratteri"}), 400
+
+    db = get_db()
+    utente = db.execute(
+        "SELECT * FROM utenti WHERE id=?", (current_user.id,)
+    ).fetchone()
+
+    if not utente or utente["password"] != hash_password(pwd_attuale):
+        db.close()
+        return jsonify({"error": "Password attuale non corretta"}), 400
+
+    db.execute(
+        "UPDATE utenti SET password=? WHERE id=?",
+        (hash_password(pwd_nuova), current_user.id)
+    )
+    db.commit()
+    db.close()
+    return jsonify({"message": "Password aggiornata con successo"})
+
+
 @app.route("/api/utenti", methods=["GET"])
 @login_required
 def get_utenti():
@@ -728,6 +759,23 @@ def aggiorna_scorta():
 # ═══════════════════════════════════════════════════════════════════════════
 # API — ASSUNZIONI (conferma dal paziente)
 # ═══════════════════════════════════════════════════════════════════════════
+
+@app.route("/api/assunzioni/<int:ass_id>/risposta", methods=["POST"])
+@login_required
+def risposta_assunzione(ass_id):
+    """Il paziente autosufficiente conferma manualmente un'assunzione."""
+    data   = request.get_json()
+    esito  = data.get("esito", "SI")
+    db     = get_db()
+    db.execute("""
+        UPDATE assunzioni
+        SET esito=?, orario_risposta=datetime('now'), canale='app'
+        WHERE id=?
+    """, (esito, ass_id))
+    db.commit()
+    db.close()
+    return jsonify({"message": f"Assunzione {esito} registrata"})
+
 
 @app.route("/api/assunzioni/conferma", methods=["POST"])
 def conferma_assunzione():

@@ -6,6 +6,10 @@
   <meta name="theme-color" content="#2563eb">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>I miei farmaci</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/css/style.css?v=5">
 </head>
 <body>
@@ -16,6 +20,14 @@
     <h1>{{ paziente.nome }} {{ paziente.cognome }}</h1>
     <div class="subtitle">I miei farmaci</div>
   </div>
+  <a href="javascript:history.back()"
+     style="margin-left:auto;color:rgba(255,255,255,0.7);font-size:0.8rem;
+            text-decoration:none;background:rgba(255,255,255,0.15);
+            padding:0.3rem 0.7rem;border-radius:20px;">← Home</a>
+  <a href="/logout"
+     style="margin-left:0.4rem;color:rgba(255,255,255,0.7);font-size:0.8rem;
+            text-decoration:none;background:rgba(255,255,255,0.15);
+            padding:0.3rem 0.7rem;border-radius:20px;">🚪 Esci</a>
 </header>
 
 <nav class="tabs">

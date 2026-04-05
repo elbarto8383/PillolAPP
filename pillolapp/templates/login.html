@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2563eb">
   <title>PillolAPP — Accesso</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/css/style.css?v=5">
   <style>
     body { min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -41,13 +45,27 @@
       </div>
       <div class="form-group">
         <label class="form-label">Password</label>
-        <input type="password" class="form-control" name="password"
-               placeholder="La tua password" autocomplete="current-password" required>
+        <div style="position:relative;">
+          <input type="password" class="form-control" name="password" id="login-password"
+                 placeholder="La tua password" autocomplete="current-password"
+                 style="padding-right:2.5rem;" required>
+          <button type="button" onclick="togglePwd('login-password',this)"
+                  style="position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);
+                         background:none;border:none;cursor:pointer;font-size:1rem;
+                         color:#94a3b8;padding:0;">👁</button>
+        </div>
       </div>
       <button type="submit" class="btn btn-primary btn-block" style="margin-top:1rem;">
         Accedi
       </button>
     </form>
   </div>
+<script>
+function togglePwd(id, btn) {
+  const el = document.getElementById(id);
+  if (el.type === 'password') { el.type = 'text'; btn.textContent = '🙈'; }
+  else { el.type = 'password'; btn.textContent = '👁'; }
+}
+</script>
 </body>
 </html>
