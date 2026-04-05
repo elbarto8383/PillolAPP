@@ -20,6 +20,11 @@
   <button class="btn btn-ghost btn-sm" onclick="syncHA()" style="margin-left:auto;background:rgba(255,255,255,0.2);color:white;border:none;">
     🔄 Sync HA
   </button>
+  <button class="btn btn-ghost btn-sm" onclick="aggiornaAIFA()" id="btn-aifa"
+          style="background:rgba(255,255,255,0.15);color:white;border:none;margin-left:0.4rem;"
+          title="Aggiorna database farmaci AIFA">
+    💊 DB AIFA
+  </button>
 </header>
 
 <!-- TABS -->
@@ -979,6 +984,22 @@ function fermaOCR() { fermaCamera(); }
 async function syncHA() {
   await api('/api/sync-ha', 'POST');
   toast('Sensori HA aggiornati ✓', 'success');
+}
+
+async function aggiornaAIFA() {
+  const btn = document.getElementById('btn-aifa');
+  btn.textContent = '⏳ Scarico...';
+  btn.disabled = true;
+  try {
+    const r = await api('/api/aifa/import', 'POST');
+    toast('Import AIFA avviato — controlla i log tra 2-3 minuti ✓', 'success');
+  } catch(e) {
+    toast('Errore avvio import AIFA', 'error');
+  }
+  setTimeout(() => {
+    btn.textContent = '💊 DB AIFA';
+    btn.disabled = false;
+  }, 5000);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
