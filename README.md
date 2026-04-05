@@ -81,19 +81,27 @@
 - Telegram Bot (create one with [@BotFather](https://t.me/BotFather))
 - Public URL for the Telegram webhook (e.g. Nginx + Certbot)
 
-### 1. Copy the files
-
-```bash
-mkdir -p /addons/pillolapp
-cp -r pillolapp/* /addons/pillolapp/
-```
-
-### 2. Install from Home Assistant
+### 1. Add the repository to Home Assistant
 
 1. Go to **Settings → Add-ons → Store**
-2. Click **⋮ → Check for updates**
-3. Find **PillolApp** in local add-ons
-4. Click **Install** → **Rebuild**
+2. Click **⋮ → Repositories**
+3. Add this URL:
+   ```
+   https://github.com/elbarto8383/PillolAPP
+   ```
+4. Click **Add** → **Close**
+
+### 2. Install PillolApp
+
+1. Find **PillolApp** in the add-on store (scroll down or search)
+2. Click **Install** → **Rebuild**
+
+> **Alternative — manual installation:**
+> ```bash
+> mkdir -p /addons/pillolapp
+> cp -r pillolapp/* /addons/pillolapp/
+> ```
+> Then go to **Settings → Add-ons → Store → ⋮ → Check for updates**
 
 ### 3. Configure
 
