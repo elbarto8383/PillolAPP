@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <title>Farmaci Manager</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=5">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <span class="header-icon">💊</span>
+  <div>
+    <h1>Farmaci Manager</h1>
+    <div class="subtitle">Dashboard Caregiver</div>
+  </div>
+  <button class="btn btn-ghost btn-sm" onclick="syncHA()" style="margin-left:auto;background:rgba(255,255,255,0.2);color:white;border:none;">
+    🔄 Sync HA
+  </button>
+</header>
+
+<!-- TABS -->
+<nav class="tabs">
+  <button class="tab-btn active" onclick="showTab('pazienti')">👥 Pazienti</button>
+  <button class="tab-btn" onclick="showTab('terapie')">📋 Terapie</button>
+  <button class="tab-btn" onclick="showTab('scorte')">📦 Scorte</button>
+  <button class="tab-btn" onclick="showTab('astuccio')">🗓️ Astuccio</button>
+  <button class="tab-btn" onclick="showTab('log')">📊 Log</button>
+</nav>
+
+<div class="container">
+
+  <!-- ══════════════ TAB: PAZIENTI ══════════════ -->
+  <div id="tab-pazienti">
+
+    <!-- Stat cards -->
+    <div class="stat-grid mt-md">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-pazienti">—</div>
+        <div class="stat-label">Pazienti attivi</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-terapie">—</div>
+        <div class="stat-label">Terapie in corso</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-scadenza" style="color:var(--warning)">—</div>
+        <div class="stat-label">In scadenza (7gg)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-aderenza" style="color:var(--success)">—</div>
+        <div class="stat-label">Aderenza oggi</div>
+      </div>
+    </div>
+
+    <div class="flex-between mb-md">
+      <span class="card-title">Pazienti</span>
+      <button class="btn btn-primary btn-sm" onclick="apriFomPaziente()">+ Nuovo</button>
+    </div>
+
+    <div id="lista-pazienti">
+      <div class="empty-state"><span class="icon">👥</span><p>Caricamento...</p></div>
+    </div>
+  </div>
+
+  <!-- ══════════════ TAB: TERAPIE ══════════════ -->
+  <div id="tab-terapie" class="hidden">
+    <div class="flex-between mt-md mb-md">
+      <span class="card-title">Terapie attive</span>
+      <button class="btn btn-primary btn-sm" onclick="apriFomTerapia()">+ Nuova</button>
+    </div>
+
+    <!-- Selettore paziente -->
+    <div class="form-group">
+      <select class="form-control form-select" id="sel-paziente-terapie" onchange="caricaTerapie()">
+        <option value="">— Seleziona paziente —</option>
+      </select>
+    </div>
+
+    <div id="lista-terapie">
+      <div class="empty-state"><span class="icon">📋</span><p>Seleziona un paziente</p></div>
+    </div>
+  </div>
+
+  <!-- ══════════════ TAB: SCORTE ══════════════ -->
+  <div id="tab-scorte" class="hidden">
+    <div class="flex-between mt-md mb-md">
+      <span class="card-title">Scorte farmaci</span>
+    </div>
+    <div class="form-group">
+      <select class="form-control form-select" id="sel-paziente-scorte" onchange="caricaScorte()">
+        <option value="">— Seleziona paziente —</option>
+      </select>
+    </div>
+    <div id="lista-scorte">
+      <div class="empty-state"><span class="icon">📦</span><p>Seleziona un paziente</p></div>
+    </div>
+  </div>
+
+  <!-- ══════════════ TAB: ASTUCCIO ══════════════ -->
+  <div id="tab-astuccio" class="hidden">
+    <div class="flex-between mt-md mb-md">
+      <span class="card-title">Astuccio settimanale</span>
+      <button class="btn btn-primary btn-sm" onclick="generaAstuccio()">🔄 Genera</button>
+    </div>
+    <div class="form-group">
+      <select class="form-control form-select" id="sel-paziente-astuccio" onchange="caricaAstuccio()">
+        <option value="">— Seleziona paziente —</option>
+      </select>
+    </div>
+    <div id="astuccio-container">
+      <div class="empty-state"><span class="icon">🗓️</span><p>Seleziona un paziente per vedere il piano settimanale</p></div>
+    </div>
+  </div>
+
+  <!-- ══════════════ TAB: LOG ══════════════ -->
+  <div id="tab-log" class="hidden">
+    <div class="flex-between mt-md mb-md">
+      <span class="card-title">Log assunzioni</span>
+    </div>
+    <div class="form-group">
+      <select class="form-control form-select" id="sel-paziente-log" onchange="caricaLog()">
+        <option value="">— Seleziona paziente —</option>
+      </select>
+    </div>
+    <div id="lista-log">
+      <div class="empty-state"><span class="icon">📊</span><p>Seleziona un paziente</p></div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ══════════════ MODAL: NUOVO PAZIENTE ══════════════ -->
+<div class="modal-overlay" id="modal-paziente">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-paziente-title">Nuovo paziente</div>
+
+    <div class="form-group">
+      <label class="form-label">Nome *</label>
+      <input type="text" class="form-control" id="paz-nome" placeholder="es. Mario">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cognome *</label>
+      <input type="text" class="form-control" id="paz-cognome" placeholder="es. Rossi">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Data di nascita</label>
+      <input type="date" class="form-control" id="paz-nascita">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Telegram Chat ID (per notifiche dirette)</label>
+      <input type="text" class="form-control" id="paz-telegram" placeholder="es. 123456789">
+      <div id="bot-info-box" style="background:#eff6ff;border-radius:8px;padding:0.6rem 0.75rem;
+           margin-top:0.4rem;font-size:0.8rem;color:#1e40af;display:none;">
+        💬 Il paziente deve mandare <b>/start</b> al bot
+        <span id="bot-nome-link"></span>
+        per ricevere il suo Chat ID da inserire qui.
+      </div>
+      <div id="bot-info-loading" style="font-size:0.75rem;color:#94a3b8;margin-top:0.3rem;">
+        ⏳ Caricamento info bot...
+      </div>
+    </div>
+
+    <div style="background:#f8fafc;border-radius:10px;padding:0.75rem;margin-bottom:0.75rem;">
+      <div style="font-size:0.8rem;font-weight:600;color:#374151;margin-bottom:0.5rem;">
+        🔐 Credenziali accesso app
+      </div>
+      <div class="form-group" style="margin-bottom:0.5rem;">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" id="paz-username" placeholder="es. luigi.rossi"
+               autocomplete="off">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" id="paz-password" placeholder="Minimo 6 caratteri"
+               autocomplete="new-password">
+      </div>
+    </div>
+
+    <!-- Selezione profilo -->
+    <div class="form-group">
+      <label class="form-label">Profilo paziente *</label>
+      <div class="profilo-toggle">
+        <div class="profilo-option selected" id="opt-autosufficiente" onclick="selProfilo('autosufficiente')">
+          <span class="icon">🧑‍💻</span>
+          <div class="label">Autosufficiente</div>
+          <div class="desc">Gestisce i farmaci in autonomia via app</div>
+        </div>
+        <div class="profilo-option" id="opt-assistito" onclick="selProfilo('assistito')">
+          <span class="icon">🤝</span>
+          <div class="label">Assistito</div>
+          <div class="desc">Vede solo la conferma assunzione</div>
+        </div>
+      </div>
+      <input type="hidden" id="paz-profilo" value="autosufficiente">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Note medico</label>
+      <textarea class="form-control" id="paz-note" rows="2" placeholder="Allergie, patologie, note..."></textarea>
+    </div>
+
+    <div class="flex gap-sm mt-md">
+      <button class="btn btn-ghost btn-block" onclick="chiudiModal('modal-paziente')">Annulla</button>
+      <button class="btn btn-primary btn-block" onclick="salvaPaziente()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: NUOVA TERAPIA ══════════════ -->
+<div class="modal-overlay" id="modal-terapia">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Nuova terapia</div>
+
+    <div class="form-group">
+      <label class="form-label">Paziente *</label>
+      <select class="form-control form-select" id="ter-paziente">
+        <option value="">— Seleziona —</option>
+      </select>
+    </div>
+
+    <!-- Ricerca farmaco -->
+    <div class="form-group">
+      <label class="form-label">Farmaco — inquadra AIC e scatta</label>
+
+      <div id="ocr-area" style="background:#1e293b;border-radius:12px;overflow:hidden;position:relative;">
+        <!-- Video live -->
+        <div id="scanner-video-area" style="position:relative;">
+          <video id="ocr-video" autoplay playsinline muted
+                 style="width:100%;display:block;max-height:200px;object-fit:cover;"></video>
+          <!-- Mirino centrato -->
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+                      width:70%;height:55%;border:2px solid rgba(255,255,255,0.8);
+                      border-radius:8px;pointer-events:none;"></div>
+          <!-- Bottone scatta -->
+          <button onclick="scattaFoto()" style="position:absolute;bottom:10px;left:50%;
+                  transform:translateX(-50%);background:white;border:none;border-radius:50%;
+                  width:52px;height:52px;font-size:1.4rem;cursor:pointer;
+                  box-shadow:0 2px 8px rgba(0,0,0,0.4);">📸</button>
+        </div>
+        <!-- Stato analisi -->
+        <div id="scanner-analisi" class="hidden" style="padding:1rem;text-align:center;">
+          <div style="color:white;">🔍 Analisi in corso...</div>
+        </div>
+        <!-- Risultato -->
+        <div id="scanner-result" class="hidden" style="padding:0.75rem;text-align:center;">
+          <div id="scanner-result-text" style="color:white;font-size:0.85rem;"></div>
+          <button onclick="riattivaCamera()"
+                  style="margin-top:0.4rem;background:rgba(255,255,255,0.15);border:none;
+                         color:#94a3b8;border-radius:6px;padding:0.3rem 0.7rem;
+                         font-size:0.75rem;cursor:pointer;">🔄 Riprova</button>
+        </div>
+        <canvas id="ocr-canvas" class="hidden"></canvas>
+        <!-- Fallback -->
+        <div style="text-align:center;padding:0.4rem;border-top:1px solid rgba(255,255,255,0.1);">
+          <label style="color:#64748b;font-size:0.72rem;cursor:pointer;">
+            oppure carica foto
+            <input type="file" id="foto-input" accept="image/*"
+                   style="display:none" onchange="elaboraFoto(this)">
+          </label>
+        </div>
+        <!-- Elementi legacy nascosti -->
+        <span id="ocr-text" class="hidden"></span>
+        <span id="ocr-icon" class="hidden"></span>
+        <span id="ocr-viewfinder" class="hidden"></span>
+        <div id="scanner-idle" class="hidden"></div>
+        <div id="scanner-live" class="hidden"><video id="ocr-video-live"></video></div>
+      </div>
+
+      <div class="flex gap-sm mt-sm">
+        <input type="text" class="form-control" id="ter-aic" placeholder="AIC (es. 035246)">
+        <button class="btn btn-ghost btn-sm" onclick="lookupAIC()">Cerca</button>
+      </div>
+    </div>
+
+    <div id="farmaco-trovato" class="card hidden" style="background:var(--success-bg);border:1px solid #86efac;">
+      <div class="flex-between">
+        <div>
+          <div class="fw-bold" id="farmaco-nome-display"></div>
+          <div class="text-sm text-muted" id="farmaco-pa-display"></div>
+        </div>
+        <span class="badge badge-success">✓ trovato</span>
+      </div>
+      <input type="hidden" id="ter-farmaco-id">
+    </div>
+
+    <div id="farmaco-manuale-area" class="hidden">
+      <div class="form-group">
+        <label class="form-label">Nome farmaco (inserimento manuale) *</label>
+        <input type="text" class="form-control" id="ter-farmaco-nome" placeholder="es. Ramipril 5mg">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Dose *</label>
+      <input type="text" class="form-control" id="ter-dose" placeholder="es. 1 compressa, 2.5ml">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Orari assunzione *</label>
+      <div class="flex gap-sm">
+        <input type="time" class="form-control" id="ter-orario-input" style="flex:1">
+        <button class="btn btn-ghost btn-sm" onclick="aggiungiOrario()">+ Aggiungi</button>
+      </div>
+      <div class="orari-list mt-sm" id="orari-list"></div>
+      <input type="hidden" id="ter-orari-json" value="[]">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Giorni della settimana</label>
+      <div class="flex gap-sm" style="flex-wrap:wrap;" id="giorni-selector">
+        <button class="giorno-btn active" data-g="0">Lun</button>
+        <button class="giorno-btn active" data-g="1">Mar</button>
+        <button class="giorno-btn active" data-g="2">Mer</button>
+        <button class="giorno-btn active" data-g="3">Gio</button>
+        <button class="giorno-btn active" data-g="4">Ven</button>
+        <button class="giorno-btn active" data-g="5">Sab</button>
+        <button class="giorno-btn active" data-g="6">Dom</button>
+      </div>
+    </div>
+
+    <div class="flex gap-sm">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Durata (giorni)</label>
+        <input type="number" class="form-control" id="ter-durata" placeholder="es. 30 (vuoto=illimitata)">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Data inizio</label>
+        <input type="date" class="form-control" id="ter-data-inizio">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Note</label>
+      <textarea class="form-control" id="ter-note" rows="2" placeholder="Prendere a stomaco pieno, ecc."></textarea>
+    </div>
+
+    <div class="flex gap-sm mt-md">
+      <button class="btn btn-ghost btn-block" onclick="chiudiModal('modal-terapia')">Annulla</button>
+      <button class="btn btn-primary btn-block" onclick="salvaTerapia()">Salva terapia</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+const API = '';
+let pazienti = [];
+let profilo_sel = 'autosufficiente';
+const GIORNI = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+const FASCE = {M:'☀️ Mattina', P:'🌤 Pranzo', S:'🌙 Sera', N:'🌑 Notte'};
+
+// ── Tabs ─────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('[id^="tab-"]').forEach(t => t.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+  event.target.classList.add('active');
+  if (name === 'terapie' || name === 'scorte' || name === 'astuccio' || name === 'log') {
+    popolaSelettori();
+  }
+}
+
+// ── API helpers ───────────────────────────────────────────────────────────
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  return r.json();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function toast(msg, type='') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────
+function apriModal(id) { document.getElementById(id).classList.add('open'); }
+function chiudiModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── Pazienti ──────────────────────────────────────────────────────────────
+async function caricaPazienti() {
+  pazienti = await api('/api/pazienti');
+  const el = document.getElementById('lista-pazienti');
+  if (!pazienti.length) {
+    el.innerHTML = '<div class="empty-state"><span class="icon">👥</span><p>Nessun paziente. Aggiungi il primo!</p></div>';
+    return;
+  }
+  el.innerHTML = '<ul class="item-list">' + pazienti.map(p => `
+    <li class="item-row">
+      <div class="item-icon ${p.profilo === 'autosufficiente' ? 'blue' : 'green'}" style="font-size:1.4rem">
+        ${p.profilo === 'autosufficiente' ? '🧑‍💻' : '🤝'}
+      </div>
+      <div class="item-body">
+        <div class="item-title">${p.nome} ${p.cognome}</div>
+        <div class="item-meta">
+          <span class="badge ${p.profilo === 'autosufficiente' ? 'badge-info' : 'badge-gray'}">${p.profilo}</span>
+          ${p.telegram_chat_id ? ' · 📱 Telegram' : ''}
+        </div>
+      </div>
+      <div class="item-actions">
+        <a href="/paziente/${p.id}" class="btn btn-ghost btn-sm" target="_blank">Apri</a>
+        <button class="btn btn-ghost btn-icon" onclick="eliminaPaziente(${p.id})">🗑️</button>
+      </div>
+    </li>`).join('') + '</ul>';
+
+  // Aggiorna stat
+  document.getElementById('stat-pazienti').textContent = pazienti.length;
+}
+
+function popolaSelettori() {
+  ['sel-paziente-terapie','sel-paziente-scorte','sel-paziente-astuccio',
+   'sel-paziente-log','ter-paziente'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const curr = el.value;
+    el.innerHTML = '<option value="">— Seleziona paziente —</option>' +
+      pazienti.map(p => `<option value="${p.id}" ${p.id == curr ? 'selected' : ''}>${p.nome} ${p.cognome}</option>`).join('');
+  });
+}
+
+function apriFomPaziente() {
+  ['paz-nome','paz-cognome','paz-telegram','paz-note','paz-username','paz-password'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('paz-nascita').value = '';
+  selProfilo('autosufficiente');
+  apriModal('modal-paziente');
+  // Carica nome bot
+  _caricaInfoBot();
+}
+
+async function _caricaInfoBot() {
+  try {
+    const r = await api('/api/telegram/info');
+    const loading = document.getElementById('bot-info-loading');
+    const box = document.getElementById('bot-info-box');
+    const link = document.getElementById('bot-nome-link');
+    if (loading) loading.style.display = 'none';
+    if (r && r.username) {
+      if (link) link.innerHTML = ` <a href="https://t.me/${r.username}" target="_blank"
+        style="font-weight:700;color:#1d4ed8;">@${r.username}</a>`;
+      if (box) box.style.display = '';
+    } else if (loading) {
+      loading.textContent = '⚠️ Bot non configurato — imposta il token nelle impostazioni';
+      loading.style.display = '';
+      loading.style.color = '#dc2626';
+    }
+  } catch(e) {
+    const loading = document.getElementById('bot-info-loading');
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+function selProfilo(p) {
+  profilo_sel = p;
+  document.getElementById('paz-profilo').value = p;
+  document.getElementById('opt-autosufficiente').classList.toggle('selected', p === 'autosufficiente');
+  document.getElementById('opt-assistito').classList.toggle('selected', p === 'assistito');
+}
+
+async function salvaPaziente() {
+  const nome    = document.getElementById('paz-nome').value.trim();
+  const cognome = document.getElementById('paz-cognome').value.trim();
+  if (!nome || !cognome) { toast('Nome e cognome obbligatori', 'error'); return; }
+
+  const username = document.getElementById('paz-username')?.value.trim() || '';
+  const password = document.getElementById('paz-password')?.value || '';
+  if (username && password && password.length < 6) {
+    toast('Password minimo 6 caratteri', 'error'); return;
+  }
+
+  const r = await api('/api/pazienti', 'POST', {
+    nome, cognome,
+    data_nascita: document.getElementById('paz-nascita').value || null,
+    profilo: document.getElementById('paz-profilo').value,
+    telegram_chat_id: document.getElementById('paz-telegram').value || null,
+    note_medico: document.getElementById('paz-note').value || null,
+  });
+
+  if (username && password && r && r.id) {
+    const ru = await api('/api/utenti', 'POST', {
+      username, password, ruolo: 'paziente', paziente_id: r.id
+    });
+    toast(ru && !ru.error ? `Paziente e accesso creati (user: ${username}) ✓` : `Paziente creato, errore utente`, ru && !ru.error ? 'success' : 'error');
+  } else {
+    toast('Paziente salvato ✓', 'success');
+  }
+
+  chiudiModal('modal-paziente');
+  await caricaPazienti();
+}
+
+async function eliminaPaziente(id) {
+  if (!confirm('Disattivare questo paziente?')) return;
+  await api('/api/pazienti/' + id, 'DELETE');
+  toast('Paziente disattivato');
+  await caricaPazienti();
+}
+
+// ── Terapie ───────────────────────────────────────────────────────────────
+let orari_sel = [];
+let giorni_sel = [0,1,2,3,4,5,6];
+
+async function caricaTerapie() {
+  const pid = document.getElementById('sel-paziente-terapie').value;
+  if (!pid) return;
+  const terapie = await api('/api/terapie/' + pid);
+  const el = document.getElementById('lista-terapie');
+  if (!terapie.length) {
+    el.innerHTML = '<div class="empty-state"><span class="icon">📋</span><p>Nessuna terapia attiva</p></div>';
+    return;
+  }
+  el.innerHTML = '<ul class="item-list">' + terapie.map(t => {
+    const orari = JSON.parse(t.orari || '[]');
+    return `<li class="item-row">
+      <div class="farmaco-avatar"
+        data-farmaco-id="${t.farmaco_id}"
+        data-nome="${t.farmaco_nome}"
+        data-immagine-locale="${t.immagine_locale || ''}"
+        data-immagine-url="${t.immagine_url || ''}"
+        data-colore-avatar="${t.colore_avatar || ''}"
+        data-upload="true"
+        data-size="48">
+      </div>
+      <div class="item-body">
+        <div class="item-title">${t.farmaco_nome}</div>
+        <div class="item-meta">${t.dose} · ${orari.map(o=>'⏰'+o).join(' ')}</div>
+        ${t.principio_attivo ? `<div class="text-sm text-muted">${t.principio_attivo}</div>` : ''}
+      </div>
+      <div class="item-actions">
+        <button class="btn btn-ghost btn-icon" onclick="eliminaTerapia(${t.id})">🗑️</button>
+      </div>
+    </li>`;
+  }).join('') + '</ul>';
+  FarmacoAvatar.render();
+  document.getElementById('stat-terapie').textContent = terapie.length;
+}
+
+function apriFomTerapia() {
+  orari_sel = [];
+  giorni_sel = [0,1,2,3,4,5,6];
+  document.getElementById('ter-dose').value = '';
+  document.getElementById('ter-note').value = '';
+  document.getElementById('ter-durata').value = '';
+  document.getElementById('ter-data-inizio').value = new Date().toISOString().slice(0,10);
+  document.getElementById('ter-farmaco-id').value = '';
+  document.getElementById('ter-aic').value = '';
+  document.getElementById('farmaco-trovato').classList.add('hidden');
+  document.getElementById('farmaco-manuale-area').classList.add('hidden');
+  document.getElementById('scanner-result').classList.add('hidden');
+  document.getElementById('scanner-analisi').classList.add('hidden');
+  document.getElementById('scanner-video-area').style.display = '';
+  document.querySelectorAll('.giorno-btn').forEach(b => b.classList.add('active'));
+  renderOrari();
+  popolaSelettori();
+  apriModal('modal-terapia');
+  setTimeout(() => avviaCamera(), 300);
+}
+
+function aggiungiOrario() {
+  const v = document.getElementById('ter-orario-input').value;
+  if (!v || orari_sel.includes(v)) return;
+  orari_sel.push(v);
+  orari_sel.sort();
+  renderOrari();
+  document.getElementById('ter-orario-input').value = '';
+}
+
+function renderOrari() {
+  document.getElementById('orari-list').innerHTML = orari_sel.map(o =>
+    `<span class="orario-pill">⏰ ${o} <button class="remove" onclick="rimuoviOrario('${o}')">×</button></span>`
+  ).join('');
+  document.getElementById('ter-orari-json').value = JSON.stringify(orari_sel);
+}
+
+function rimuoviOrario(o) {
+  orari_sel = orari_sel.filter(x => x !== o);
+  renderOrari();
+}
+
+document.querySelectorAll && document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('giorni-selector').addEventListener('click', e => {
+    const btn = e.target.closest('.giorno-btn');
+    if (!btn) return;
+    const g = parseInt(btn.dataset.g);
+    btn.classList.toggle('active');
+    if (btn.classList.contains('active')) {
+      if (!giorni_sel.includes(g)) giorni_sel.push(g);
+    } else {
+      giorni_sel = giorni_sel.filter(x => x !== g);
+    }
+  });
+});
+
+async function lookupAIC() {
+  const aic = document.getElementById('ter-aic').value.trim();
+  if (!aic) { toast('Inserisci un codice AIC', 'error'); return; }
+  toast('Ricerca su AIFA...');
+  const r = await api('/api/farmaci/lookup', 'POST', { aic });
+  if (r.error) {
+    toast('Farmaco non trovato — inserimento manuale', 'error');
+    document.getElementById('farmaco-manuale-area').classList.remove('hidden');
+    return;
+  }
+  const f = r.farmaco;
+  document.getElementById('ter-farmaco-id').value = f.id;
+  document.getElementById('farmaco-nome-display').textContent = f.nome;
+  document.getElementById('farmaco-pa-display').textContent = f.principio_attivo || '';
+  document.getElementById('farmaco-trovato').classList.remove('hidden');
+  document.getElementById('farmaco-manuale-area').classList.add('hidden');
+  toast('Farmaco trovato ✓', 'success');
+}
+
+async function salvaTerapia() {
+  const pid = document.getElementById('ter-paziente').value;
+  const dose = document.getElementById('ter-dose').value.trim();
+  let farmaco_id = document.getElementById('ter-farmaco-id').value;
+
+  // Leggi orari sia dalla variabile globale che dal campo hidden (fallback)
+  let orari = orari_sel.length ? orari_sel :
+    JSON.parse(document.getElementById('ter-orari-json').value || '[]');
+
+  if (!pid) { toast('Seleziona un paziente', 'error'); return; }
+  if (!dose) { toast('Inserisci la dose', 'error'); return; }
+  if (!orari.length) { toast('Aggiungi almeno un orario', 'error'); return; }
+
+  // Se farmaco manuale, crealo prima
+  if (!farmaco_id) {
+    const nome = document.getElementById('ter-farmaco-nome') ?
+      document.getElementById('ter-farmaco-nome').value.trim() : '';
+    const aic = document.getElementById('ter-aic').value.trim();
+    if (!nome && !aic) { toast('Nome farmaco obbligatorio', 'error'); return; }
+    if (nome) {
+      const r = await api('/api/farmaci', 'POST', { nome, aic: aic || null });
+      farmaco_id = r.id;
+    }
+  }
+
+  // Leggi giorni sia dalla variabile che dai bottoni attivi (fallback)
+  let giorni = giorni_sel;
+  if (!giorni || !giorni.length) {
+    giorni = [0,1,2,3,4,5,6];
+  }
+
+  const payload = {
+    paziente_id: parseInt(pid),
+    dose,
+    orari,
+    giorni_settimana: giorni,
+    durata_giorni: document.getElementById('ter-durata').value || null,
+    data_inizio: document.getElementById('ter-data-inizio').value ||
+                 new Date().toISOString().slice(0,10),
+    note: document.getElementById('ter-note').value || null,
+    // Passa anche dati farmaco per il backend (usati se farmaco_id è vuoto)
+    aic: document.getElementById('ter-aic').value.trim() || null,
+    nome: document.getElementById('ter-farmaco-nome') ?
+          document.getElementById('ter-farmaco-nome').value.trim() : null,
+    principio_attivo: document.getElementById('ter-pa') ?
+                      document.getElementById('ter-pa').value : null,
+    atc: document.getElementById('ter-atc') ?
+         document.getElementById('ter-atc').value : null,
+  };
+  if (farmaco_id) payload.farmaco_id = parseInt(farmaco_id);
+
+  const r = await api('/api/terapie', 'POST', payload);
+  if (!r || r.error) { toast(r?.error || 'Errore salvataggio', 'error'); return; }
+  chiudiModal('modal-terapia');
+  toast('Terapia salvata ✓', 'success');
+  caricaTerapie();
+}
+
+async function eliminaTerapia(id) {
+  if (!confirm('Disattivare questa terapia?')) return;
+  await api('/api/terapie/' + id, 'DELETE');
+  toast('Terapia disattivata');
+  caricaTerapie();
+}
+
+// ── Scorte ────────────────────────────────────────────────────────────────
+async function caricaScorte() {
+  const pid = document.getElementById('sel-paziente-scorte').value;
+  if (!pid) return;
+  const scorte = await api('/api/scorte/' + pid);
+  const el = document.getElementById('lista-scorte');
+  if (!scorte.length) {
+    el.innerHTML = '<div class="empty-state"><span class="icon">📦</span><p>Nessuna scorta registrata</p></div>';
+    return;
+  }
+
+  let scad_count = 0;
+  el.innerHTML = '<ul class="item-list">' + scorte.map(s => {
+    const pct = s.quantita / Math.max(s.soglia_minima * 4, 1);
+    const bassa = s.quantita <= s.soglia_minima;
+    if (bassa) scad_count++;
+    return `<li class="item-row">
+      <div class="item-icon ${bassa ? 'red' : 'green'}">${bassa ? '⚠️' : '💊'}</div>
+      <div class="item-body">
+        <div class="item-title">${s.farmaco_nome}</div>
+        <div class="item-meta">
+          ${s.quantita} ${s.unita} rimaste · soglia: ${s.soglia_minima}
+          ${s.scadenza ? ` · scade: ${s.scadenza}` : ''}
+        </div>
+        <div style="background:var(--gray-100);border-radius:4px;height:4px;margin-top:6px">
+          <div style="background:${bassa?'var(--danger)':'var(--success)'};width:${Math.min(pct*100,100)}%;height:100%;border-radius:4px;transition:width 0.3s"></div>
+        </div>
+      </div>
+      <div class="item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="aggiornaScorta(${pid},${s.farmaco_id},'${s.farmaco_nome}',${s.quantita},'${s.unita}',${s.soglia_minima})">Modifica</button>
+      </div>
+    </li>`;
+  }).join('') + '</ul>';
+  document.getElementById('stat-scadenza').textContent = scad_count;
+}
+
+function aggiornaScorta(pid, fid, nome, qtaAttuale, unita, soglia) {
+  const nuova = prompt(`${nome}\nQuantità attuale: ${qtaAttuale} ${unita}\n\nNuova quantità:`);
+  if (nuova === null || nuova === '') return;
+  api('/api/scorte', 'POST', {
+    paziente_id: pid, farmaco_id: fid,
+    quantita: parseFloat(nuova), unita, soglia_minima: soglia
+  }).then(() => { toast('Scorta aggiornata ✓', 'success'); caricaScorte(); });
+}
+
+// ── Astuccio ──────────────────────────────────────────────────────────────
+async function caricaAstuccio() {
+  const pid = document.getElementById('sel-paziente-astuccio').value;
+  if (!pid) return;
+  const slots = await api('/api/astuccio/' + pid);
+  const el = document.getElementById('astuccio-container');
+
+  if (!slots.length) {
+    el.innerHTML = '<div class="empty-state"><span class="icon">🗓️</span><p>Nessun piano generato. Clicca "Genera".</p></div>';
+    return;
+  }
+
+  // Raggruppa per giorno
+  const perGiorno = {};
+  slots.forEach(s => {
+    if (!perGiorno[s.giorno]) perGiorno[s.giorno] = {};
+    perGiorno[s.giorno][s.fascia] = s;
+  });
+
+  el.innerHTML = GIORNI.map((g, gi) => {
+    const dg = perGiorno[gi] || {};
+    return `<div class="card mb-sm">
+      <div class="card-header"><span class="card-title">${g}</span></div>
+      <div class="astuccio-grid">
+        ${['M','P','S','N'].map(f => {
+          const slot = dg[f];
+          if (!slot) return `<div class="astuccio-slot vuoto"><span>${FASCE[f]}</span><span>—</span></div>`;
+          const cls = slot.caricato ? 'caricato' : 'da-fare';
+          const ids = JSON.parse(slot.farmaci_ids || '[]');
+          return `<div class="astuccio-slot ${cls}" onclick="toggleSlot(${slot.id},${slot.caricato})">
+            <span style="font-size:1.1rem">${slot.caricato ? '✅' : '⭕'}</span>
+            <span>${FASCE[f]}</span>
+            <span style="font-size:0.6rem">${ids.length} farm.</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleSlot(id, caricato) {
+  await api('/api/astuccio/slot/' + id + '/carica', 'POST', { caricato: !caricato });
+  caricaAstuccio();
+}
+
+async function generaAstuccio() {
+  const pid = document.getElementById('sel-paziente-astuccio').value;
+  if (!pid) { toast('Seleziona un paziente', 'error'); return; }
+  await api('/api/astuccio/genera', 'POST', { paziente_id: parseInt(pid) });
+  toast('Astuccio generato ✓', 'success');
+  caricaAstuccio();
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────
+async function caricaLog() {
+  const pid = document.getElementById('sel-paziente-log').value;
+  if (!pid) return;
+  const log = await api('/api/assunzioni/' + pid + '?giorni=7');
+  const el = document.getElementById('lista-log');
+  if (!log.length) {
+    el.innerHTML = '<div class="empty-state"><span class="icon">📊</span><p>Nessun log negli ultimi 7 giorni</p></div>';
+    return;
+  }
+
+  let si=0, no=0, pend=0;
+  log.forEach(a => { if(a.esito==='SI') si++; else if(a.esito==='NO') no++; else pend++; });
+  const tot = si + no;
+  const aderenza = tot ? Math.round(si/tot*100) : 0;
+  document.getElementById('stat-aderenza').textContent = aderenza + '%';
+
+  el.innerHTML = `<div class="card mb-md" style="background:#eff6ff">
+    <div class="flex-between">
+      <span>Aderenza ultimi 7gg</span>
+      <span class="fw-bold" style="font-size:1.3rem;color:var(--success)">${aderenza}%</span>
+    </div>
+    <div class="text-sm text-muted">✅ ${si} prese · ❌ ${no} mancate · ⏳ ${pend} in attesa</div>
+  </div>` +
+  '<ul class="item-list">' + log.slice(0,30).map(a => {
+    const icona = {SI:'✅',NO:'❌',PENDENTE:'⏳',SKIP:'⏭️'}[a.esito] || '❓';
+    const cls   = {SI:'success',NO:'danger',PENDENTE:'warning',SKIP:'gray'}[a.esito] || 'gray';
+    return `<li class="item-row">
+      <div style="font-size:1.5rem">${icona}</div>
+      <div class="item-body">
+        <div class="item-title">${a.farmaco_nome}</div>
+        <div class="item-meta">${a.orario_previsto} · ${a.dose}</div>
+      </div>
+      <span class="badge badge-${cls}">${a.esito}</span>
+    </li>`;
+  }).join('') + '</ul>';
+}
+
+// ── Scanner AIC — cross-platform ─────────────────────────────────────────
+let _liveScanRunning = false;
+let _liveScanRaf = null;
+// ── Camera live ───────────────────────────────────────────────────────────
+// All'avvio: rileva piattaforma
+document.addEventListener('DOMContentLoaded', () => {
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const hasBarcodeDetector = 'BarcodeDetector' in window;
+  if (isAndroid && hasBarcodeDetector) {
+    const hint = document.getElementById('scanner-hint');
+    if (hint) hint.textContent = 'Scatta foto oppure usa la scansione live del barcode';
+  }
+});
+
+function resetScanner() {
+  document.getElementById('scanner-result').classList.add('hidden');
+  document.getElementById('scanner-analisi').classList.add('hidden');
+  document.getElementById('scanner-video-area').style.display = '';
+  const inp = document.getElementById('foto-input');
+  if (inp) inp.value = '';
+  riattivaCamera();
+}
+
+// ── Camera live + cattura frame ritagliato sul mirino ─────────────────────
+let _cameraStream = null;
+
+async function avviaCamera() {
+  try {
+    _cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    const video = document.getElementById('ocr-video');
+    video.srcObject = _cameraStream;
+    await video.play();
+    document.getElementById('scanner-video-area').style.display = '';
+  } catch(e) {
+    console.warn('[Camera] Non disponibile:', e);
+  }
+}
+
+function fermaCamera() {
+  if (_cameraStream) {
+    _cameraStream.getTracks().forEach(t => t.stop());
+    _cameraStream = null;
+  }
+}
+
+function riattivaCamera() {
+  document.getElementById('scanner-result').classList.add('hidden');
+  document.getElementById('scanner-analisi').classList.add('hidden');
+  document.getElementById('scanner-video-area').style.display = '';
+  avviaCamera();
+}
+
+async function scattaFoto() {
+  const video = document.getElementById('ocr-video');
+  const canvas = document.getElementById('ocr-canvas');
+
+  const vw = video.videoWidth  || 1280;
+  const vh = video.videoHeight || 720;
+
+  if (vw === 0 || vh === 0) {
+    toast('Camera non pronta — riprova', 'error');
+    return;
+  }
+
+  // Ritaglia solo la zona del mirino (70% larghezza, 55% altezza, centrato)
+  const cw = Math.round(vw * 0.70);
+  const ch = Math.round(vh * 0.55);
+  const cx = Math.round((vw - cw) / 2);
+  const cy = Math.round((vh - ch) / 2);
+
+  canvas.width  = cw;
+  canvas.height = ch;
+  canvas.getContext('2d').drawImage(video, cx, cy, cw, ch, 0, 0, cw, ch);
+
+  // Usa dataURL invece di toBlob — più affidabile cross-browser
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  console.log('[OCR] DataURL length:', dataUrl.length);
+
+  if (dataUrl.length < 1000) {
+    toast('Frame vuoto — riprova', 'error');
+    return;
+  }
+
+  fermaCamera();
+  document.getElementById('scanner-video-area').style.display = 'none';
+  document.getElementById('scanner-analisi').classList.remove('hidden');
+  document.getElementById('scanner-result').classList.add('hidden');
+
+  try {
+    const resp = await fetch('/api/farmaci/ocr-foto-b64', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ immagine: dataUrl })
+    });
+    const r = await resp.json();
+    console.log('[OCR]', r);
+
+    document.getElementById('scanner-analisi').classList.add('hidden');
+    document.getElementById('scanner-result').classList.remove('hidden');
+
+    if (r.aic) {
+      document.getElementById('ter-aic').value = r.aic;
+      document.getElementById('scanner-result-text').textContent = `✅ AIC rilevato: ${r.aic}`;
+      await lookupAIC();
+    } else {
+      document.getElementById('scanner-result-text').textContent =
+        `⚠️ Non trovato — inserisci manualmente${r.testo ? '\nLetto: ' + r.testo.substring(0,60) : ''}`;
+    }
+  } catch(e) {
+    document.getElementById('scanner-analisi').classList.add('hidden');
+    document.getElementById('scanner-result').classList.remove('hidden');
+    document.getElementById('scanner-result-text').textContent = '⚠️ Errore — inserisci AIC manualmente';
+    console.error('[OCR]', e);
+  }
+}
+
+// Fallback: carica foto da file
+async function elaboraFoto(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  fermaCamera();
+  document.getElementById('scanner-video-area').style.display = 'none';
+  document.getElementById('scanner-analisi').classList.remove('hidden');
+  document.getElementById('scanner-result').classList.add('hidden');
+  try {
+    const formData = new FormData();
+    formData.append('foto', file);
+    const resp = await fetch('/api/farmaci/ocr-foto', { method: 'POST', body: formData });
+    const r = await resp.json();
+    document.getElementById('scanner-analisi').classList.add('hidden');
+    document.getElementById('scanner-result').classList.remove('hidden');
+    if (r.aic) {
+      document.getElementById('ter-aic').value = r.aic;
+      document.getElementById('scanner-result-text').textContent = `✅ AIC rilevato: ${r.aic}`;
+      await lookupAIC();
+    } else {
+      document.getElementById('scanner-result-text').textContent = '⚠️ Non trovato — inserisci AIC manualmente';
+    }
+  } catch(e) {
+    document.getElementById('scanner-analisi').classList.add('hidden');
+    document.getElementById('scanner-result').classList.remove('hidden');
+    document.getElementById('scanner-result-text').textContent = '⚠️ Errore — inserisci AIC manualmente';
+  }
+}
+
+function avviaOCR() { scattaFoto(); }
+function fermaOCR() { fermaCamera(); }
+
+// ── HA Sync ───────────────────────────────────────────────────────────────
+async function syncHA() {
+  await api('/api/sync-ha', 'POST');
+  toast('Sensori HA aggiornati ✓', 'success');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  caricaPazienti();
+
+  // Chiudi modal cliccando overlay
+  document.querySelectorAll('.modal-overlay').forEach(ov => {
+    ov.addEventListener('click', e => {
+      if (e.target === ov) {
+        ov.classList.remove('open');
+        fermaCamera();
+      }
+    });
+  });
+});
+</script>
+
+<script src="/static/js/farmaco-scanner.js"></script>
+<!-- Tesseract.js caricato lazy -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js" async></script>
+<script src="/static/js/farmaco-avatar.js"></script>
+</body>
+</html>

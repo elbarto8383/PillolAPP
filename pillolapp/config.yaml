@@ -1,0 +1,81 @@
+name: "PillolApp"
+description: "Gestione farmaci per pazienti cronici — promemoria Telegram + Alexa, scorte, astuccio settimanale. Modalità solo o famiglia."
+version: "2.0.0"
+slug: "pillolapp"
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+
+homeassistant_api: true
+hassio_api: false
+
+map:
+  - config:rw
+
+ports:
+  5001/tcp: 5001
+ports_description:
+  5001/tcp: "PillolApp — Web UI e API"
+
+options:
+
+  # ── Modalità utilizzo ────────────────────────────────────────────────────
+  # "solo"     → utente unico, sei tu stesso paziente e caregiver
+  # "famiglia" → caregiver separato gestisce uno o più pazienti
+  modalita_utilizzo: "famiglia"
+
+  # ── Home Assistant ──────────────────────────────────────────────────────
+  ha_url: "http://homeassistant.local:8123"
+  ha_token: ""
+
+  # ── Accesso pubblico (per Telegram webhook) ─────────────────────────────
+  public_url: "https://farmaci.tuodominio.it"
+
+  # ── Telegram ────────────────────────────────────────────────────────────
+  telegram_bot_token: ""
+  telegram_chat_ids: []
+
+  # ── Alexa ────────────────────────────────────────────────────────────────
+  alexa_abilitata: true
+  alexa_entity_id: "media_player.alexa"
+
+  # ── Notifiche ────────────────────────────────────────────────────────────
+  notifica_ritardo_minuti: 15
+  notifica_max_tentativi: 3
+
+  # ── Autenticazione ───────────────────────────────────────────────────────
+  caregiver_password: "admin1234"
+  secret_key: "farmaci-secret-cambia-questo-valore"
+
+schema:
+
+  # ── Modalità ─────────────────────────────────────────────────────────────
+  modalita_utilizzo: list(solo|famiglia)
+
+  # ── Home Assistant ──────────────────────────────────────────────────────
+  ha_url: url
+  ha_token: password
+
+  # ── Accesso pubblico ─────────────────────────────────────────────────────
+  public_url: url
+
+  # ── Telegram ────────────────────────────────────────────────────────────
+  telegram_bot_token: password
+  telegram_chat_ids:
+    - str
+
+  # ── Alexa ────────────────────────────────────────────────────────────────
+  alexa_abilitata: bool
+  alexa_entity_id: str
+
+  # ── Notifiche ────────────────────────────────────────────────────────────
+  notifica_ritardo_minuti: int
+  notifica_max_tentativi: int
+
+  # ── Autenticazione ───────────────────────────────────────────────────────
+  caregiver_password: password
+  secret_key: password

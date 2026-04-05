@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>I miei farmaci — {{ paziente.nome }}</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=5">
+  <style>
+    .terapia-card {
+      background: white; border-radius: 16px; padding: 1.25rem;
+      margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border-left: 4px solid var(--primary);
+    }
+    .terapia-card.presa { border-left-color: var(--success); opacity: 0.7; }
+    .terapia-card.non-presa { border-left-color: var(--danger); }
+    .terapia-nome { font-weight: 700; font-size: 1.05rem; color: #1e293b; }
+    .terapia-info { color: #64748b; font-size: 0.85rem; margin-top: 0.2rem; }
+    .terapia-orari { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+    .orario-badge { background: #eff6ff; color: #2563eb; border-radius: 20px;
+                    padding: 0.2rem 0.6rem; font-size: 0.8rem; font-weight: 600; }
+    .oggi-header { font-size: 0.9rem; color: #64748b; margin-bottom: 0.5rem;
+                   text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .empty-day { text-align: center; padding: 2rem; color: #94a3b8; }
+    .avatar-circle { width: 52px; height: 52px; border-radius: 50%;
+                     display: flex; align-items: center; justify-content: center;
+                     font-weight: 700; font-size: 1rem; color: white; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-icon">👤</div>
+  <div>
+    <h1>{{ paziente.nome }} {{ paziente.cognome }}</h1>
+    <div class="subtitle">I miei farmaci</div>
+  </div>
+  <a href="/logout" style="margin-left:auto;color:rgba(255,255,255,0.7);font-size:0.8rem;
+     text-decoration:none;background:rgba(255,255,255,0.15);padding:0.3rem 0.7rem;
+     border-radius:20px;">Esci</a>
+</header>
+
+<div class="container">
+
+  <!-- Terapie di oggi -->
+  <div class="mt-md">
+    <div class="oggi-header" id="oggi-label">Oggi</div>
+    <div id="terapie-oggi">
+      <div class="empty-day">⏳ Caricamento...</div>
+    </div>
+  </div>
+
+  <!-- Prossimi farmaci -->
+  <div class="mt-md">
+    <div class="oggi-header">Tutte le terapie attive</div>
+    <div id="terapie-tutte">
+      <div class="empty-day">⏳ Caricamento...</div>
+    </div>
+  </div>
+
+  <!-- Scorte -->
+  <div class="mt-md">
+    <div class="oggi-header">Scorte</div>
+    <div id="scorte-box">
+      <div class="empty-day">⏳ Caricamento...</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="/static/js/farmaco-avatar.js"></script>
+<script>
+const PAZIENTE_ID = {{ paziente.id }};
+const GIORNI_IT   = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+const MESI_IT     = ['gennaio','febbraio','marzo','aprile','maggio','giugno',
+                     'luglio','agosto','settembre','ottobre','novembre','dicembre'];
+
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+function toast(msg, type='') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// Aggiorna header con data di oggi
+function aggiornaData() {
+  const ora = new Date();
+  const giornoNome = GIORNI_IT[ora.getDay() === 0 ? 6 : ora.getDay() - 1];
+  const label = `${giornoNome} ${ora.getDate()} ${MESI_IT[ora.getMonth()]} ${ora.getFullYear()}`;
+  document.getElementById('oggi-label').textContent = label;
+}
+
+// Carica terapie del giorno
+async function caricaOggi() {
+  const terapie = await api('/api/terapie/' + PAZIENTE_ID);
+  const assunzioni = await api('/api/assunzioni/' + PAZIENTE_ID + '?giorni=1');
+  const el = document.getElementById('terapie-oggi');
+
+  if (!terapie.length) {
+    el.innerHTML = '<div class="empty-day">✅ Nessuna terapia oggi</div>';
+    return;
+  }
+
+  const oggi = new Date().getDay(); // 0=dom, 1=lun, ...
+  const oggiIndice = oggi === 0 ? 6 : oggi - 1; // 0=lun
+
+  const terapieOggi = terapie.filter(t => {
+    const giorni = JSON.parse(t.giorni_settimana || 'null');
+    return !giorni || giorni.includes(oggiIndice);
+  });
+
+  if (!terapieOggi.length) {
+    el.innerHTML = '<div class="empty-day">✅ Nessuna terapia per oggi</div>';
+    return;
+  }
+
+  el.innerHTML = terapieOggi.map(t => {
+    const orari = JSON.parse(t.orari || '[]');
+    const assunta = assunzioni.find(a => a.terapia_id === t.id && a.esito === 'SI');
+    const rifiutata = assunzioni.find(a => a.terapia_id === t.id && a.esito === 'NO');
+    const stato = assunta ? 'presa' : rifiutata ? 'non-presa' : '';
+    const colore = t.colore_avatar || '#2563eb';
+
+    return `<div class="terapia-card ${stato}">
+      <div class="flex gap-sm" style="align-items:flex-start;">
+        <div class="avatar-circle" style="background:${colore};">
+          ${t.farmaco_nome.substring(0,2).toUpperCase()}
+        </div>
+        <div style="flex:1;">
+          <div class="terapia-nome">${t.farmaco_nome}</div>
+          <div class="terapia-info">${t.dose}
+            ${t.principio_attivo ? '· ' + t.principio_attivo : ''}
+          </div>
+          <div class="terapia-orari">
+            ${orari.map(o => `<span class="orario-badge">⏰ ${o}</span>`).join('')}
+          </div>
+          ${stato === 'presa' ? '<div style="color:var(--success);font-size:0.8rem;margin-top:0.3rem;">✅ Assunto oggi</div>' : ''}
+          ${stato === 'non-presa' ? '<div style="color:var(--danger);font-size:0.8rem;margin-top:0.3rem;">❌ Non assunto</div>' : ''}
+          ${t.note ? `<div style="color:#94a3b8;font-size:0.75rem;margin-top:0.3rem;">ℹ️ ${t.note}</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Carica tutte le terapie attive
+async function caricaTutte() {
+  const terapie = await api('/api/terapie/' + PAZIENTE_ID);
+  const el = document.getElementById('terapie-tutte');
+
+  if (!terapie.length) {
+    el.innerHTML = '<div class="empty-day">Nessuna terapia attiva</div>';
+    return;
+  }
+
+  el.innerHTML = '<ul class="item-list">' + terapie.map(t => {
+    const orari = JSON.parse(t.orari || '[]');
+    const giorni = JSON.parse(t.giorni_settimana || 'null');
+    const colore = t.colore_avatar || '#2563eb';
+    const giorniLabel = giorni && giorni.length < 7
+      ? giorni.map(g => ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'][g]).join(', ')
+      : 'Tutti i giorni';
+
+    return `<li class="item-row">
+      <div class="item-icon" style="background:${colore};color:white;font-weight:700;font-size:0.75rem;">
+        ${t.farmaco_nome.substring(0,2).toUpperCase()}
+      </div>
+      <div class="item-body">
+        <div class="item-title">${t.farmaco_nome}</div>
+        <div class="item-meta">${t.dose} · ${orari.map(o=>'⏰'+o).join(' ')}</div>
+        <div class="item-meta" style="font-size:0.75rem;">${giorniLabel}</div>
+      </div>
+    </li>`;
+  }).join('') + '</ul>';
+}
+
+// Carica scorte
+async function caricaScorte() {
+  const scorte = await api('/api/scorte/' + PAZIENTE_ID);
+  const el = document.getElementById('scorte-box');
+
+  if (!scorte.length) {
+    el.innerHTML = '<div class="empty-day">Nessuna scorta registrata</div>';
+    return;
+  }
+
+  let html = '<ul class="item-list">';
+  scorte.forEach(s => {
+    const bassa = s.quantita <= s.soglia_minima;
+    html += `<li class="item-row">
+      <div class="item-icon ${bassa ? 'red' : 'green'}">${bassa ? '⚠️' : '💊'}</div>
+      <div class="item-body">
+        <div class="item-title">${s.farmaco_nome}</div>
+        <div class="item-meta">
+          ${s.quantita} ${s.unita} rimaste
+          ${s.scadenza ? ' · scade: ' + s.scadenza : ''}
+          ${bassa ? ' · <span style="color:var(--danger)">SCORTA BASSA</span>' : ''}
+        </div>
+      </div>
+    </li>`;
+  });
+  html += '</ul>';
+  el.innerHTML = html;
+}
+
+// Init
+aggiornaData();
+caricaOggi();
+caricaTutte();
+caricaScorte();
+// Aggiorna ogni minuto
+setInterval(() => { caricaOggi(); }, 60000);
+</script>
+</body>
+</html>

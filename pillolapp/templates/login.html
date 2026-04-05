@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <title>Farmaci Manager — Accesso</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=5">
+  <style>
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center;
+           background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); }
+    .login-box { background: white; border-radius: 20px; padding: 2rem;
+                 width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    .login-logo { text-align: center; margin-bottom: 1.5rem; }
+    .login-logo .icon { font-size: 3rem; }
+    .login-logo h1 { font-size: 1.4rem; font-weight: 700; color: #1e293b; margin-top: 0.5rem; }
+    .login-logo p { color: #64748b; font-size: 0.85rem; }
+    .login-error { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626;
+                   border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem;
+                   font-size: 0.85rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="icon">💊</div>
+      <h1>Farmaci Manager</h1>
+      <p>Accedi con le tue credenziali</p>
+    </div>
+
+    {% if errore %}
+    <div class="login-error">{{ errore }}</div>
+    {% endif %}
+
+    <form method="POST" action="/login">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" name="username"
+               placeholder="Il tuo username" autocomplete="username"
+               value="{{ username_prev or '' }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" name="password"
+               placeholder="La tua password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" style="margin-top:1rem;">
+        Accedi
+      </button>
+    </form>
+  </div>
+</body>
+</html>
