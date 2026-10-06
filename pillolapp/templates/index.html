@@ -490,6 +490,11 @@ function togglePwd(id, btn) {
   else { el.type = 'password'; btn.textContent = '👁'; }
 }
 
+// Escape HTML: i nomi dei farmaci/pazienti sono testo libero e finiscono in innerHTML
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 async function api(path, method='GET', body=null) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
   if (body) opts.body = JSON.stringify(body);
@@ -527,7 +532,7 @@ async function caricaPazienti() {
         ${p.profilo === 'autosufficiente' ? '🧑‍💻' : '🤝'}
       </div>
       <div class="item-body">
-        <div class="item-title">${p.nome} ${p.cognome}</div>
+        <div class="item-title">${esc(p.nome)} ${esc(p.cognome)}</div>
         <div class="item-meta">
           <span class="badge ${p.profilo === 'autosufficiente' ? 'badge-info' : 'badge-gray'}">${p.profilo}</span>
           ${p.telegram_chat_id ? ' · 📱 Telegram' : ''}
@@ -536,7 +541,7 @@ async function caricaPazienti() {
       <div class="item-actions">
         <a href="/paziente/${p.id}" class="btn btn-ghost btn-sm">Apri</a>
         <button class="btn btn-ghost btn-icon" title="Reset password"
-                onclick="apriResetPassword(${p.id},'${p.nome}')">🔑</button>
+                onclick="apriResetPassword(${p.id},${esc(JSON.stringify(p.nome))})">🔑</button>
         <button class="btn btn-ghost btn-icon" onclick="eliminaPaziente(${p.id})">🗑️</button>
       </div>
     </li>`).join('') + '</ul>';
@@ -552,7 +557,7 @@ function popolaSelettori() {
     if (!el) return;
     const curr = el.value;
     el.innerHTML = '<option value="">— Seleziona paziente —</option>' +
-      pazienti.map(p => `<option value="${p.id}" ${p.id == curr ? 'selected' : ''}>${p.nome} ${p.cognome}</option>`).join('');
+      pazienti.map(p => `<option value="${p.id}" ${p.id == curr ? 'selected' : ''}>${esc(p.nome)} ${esc(p.cognome)}</option>`).join('');
   });
 }
 
@@ -677,7 +682,7 @@ async function caricaTerapie() {
     return `<li class="item-row">
       <div class="farmaco-avatar"
         data-farmaco-id="${t.farmaco_id}"
-        data-nome="${t.farmaco_nome}"
+        data-nome="${esc(t.farmaco_nome)}"
         data-immagine-locale="${t.immagine_locale || ''}"
         data-immagine-url="${t.immagine_url || ''}"
         data-colore-avatar="${t.colore_avatar || ''}"
@@ -685,8 +690,8 @@ async function caricaTerapie() {
         data-size="48">
       </div>
       <div class="item-body">
-        <div class="item-title">${t.farmaco_nome}</div>
-        <div class="item-meta">${t.dose} · ${orari.map(o=>'⏰'+o).join(' ')}</div>
+        <div class="item-title">${esc(t.farmaco_nome)}</div>
+        <div class="item-meta">${esc(t.dose)} · ${orari.map(o=>'⏰'+o).join(' ')}</div>
         ${t.principio_attivo ? `<div class="text-sm text-muted">${t.principio_attivo}</div>` : ''}
       </div>
       <div class="item-actions">
@@ -925,9 +930,9 @@ async function caricaScorte() {
     return `<li class="item-row">
       <div class="item-icon ${bassa ? 'red' : 'green'}">${bassa ? '⚠️' : '💊'}</div>
       <div class="item-body">
-        <div class="item-title">${s.farmaco_nome}</div>
+        <div class="item-title">${esc(s.farmaco_nome)}</div>
         <div class="item-meta">
-          ${s.quantita} ${s.unita} rimaste · soglia: ${s.soglia_minima}
+          ${s.quantita} ${esc(s.unita)} rimaste · soglia: ${s.soglia_minima}
           ${s.scadenza ? ` · scade: ${s.scadenza}` : ''}
         </div>
         <div style="background:var(--gray-100);border-radius:4px;height:4px;margin-top:6px">
@@ -935,7 +940,7 @@ async function caricaScorte() {
         </div>
       </div>
       <div class="item-actions">
-        <button class="btn btn-ghost btn-sm" onclick="aggiornaScorta(${pid},${s.farmaco_id},'${s.farmaco_nome}',${s.quantita},'${s.unita}',${s.soglia_minima})">Modifica</button>
+        <button class="btn btn-ghost btn-sm" onclick="aggiornaScorta(${pid},${s.farmaco_id},${esc(JSON.stringify(s.farmaco_nome))},${s.quantita},${esc(JSON.stringify(s.unita))},${s.soglia_minima})">Modifica</button>
       </div>
     </li>`;
   }).join('') + '</ul>';
@@ -1034,8 +1039,8 @@ async function caricaLog() {
     return `<li class="item-row">
       <div style="font-size:1.5rem">${icona}</div>
       <div class="item-body">
-        <div class="item-title">${a.farmaco_nome}</div>
-        <div class="item-meta">${a.orario_previsto} · ${a.dose}</div>
+        <div class="item-title">${esc(a.farmaco_nome)}</div>
+        <div class="item-meta">${esc(a.orario_previsto)} · ${esc(a.dose)}</div>
       </div>
       <span class="badge badge-${cls}">${a.esito}</span>
     </li>`;

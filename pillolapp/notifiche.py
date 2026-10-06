@@ -1,5 +1,7 @@
-import requests
 import json
+from html import escape as _e
+
+import requests
 
 
 class NotificaManager:
@@ -7,7 +9,7 @@ class NotificaManager:
                  alexa_entity, alexa_abilitata=True):
         self.telegram_token  = telegram_token
         self.chat_ids        = chat_ids
-        self.ha_url          = ha_url
+        self.ha_url          = (ha_url or "").rstrip("/")
         self.ha_token        = ha_token
         self.alexa_entity    = alexa_entity
         self.alexa_abilitata = alexa_abilitata
@@ -15,10 +17,13 @@ class NotificaManager:
     # ── Telegram ────────────────────────────────────────────────────────────
 
     def invia_telegram(self, chat_id, testo, inline_keyboard=None):
+        """Invia un messaggio Telegram. Ritorna True se consegnato, False altrimenti."""
         if not self.telegram_token:
             print("[TELEGRAM] Token non configurato.")
-            return
-        payload = {"chat_id": chat_id, "text": testo, "parse_mode": "HTML"}
+            return False
+        if chat_id in (None, ""):
+            return False
+        payload = {"chat_id": str(chat_id).strip(), "text": testo, "parse_mode": "HTML"}
         if inline_keyboard:
             payload["reply_markup"] = json.dumps({"inline_keyboard": inline_keyboard})
         try:
@@ -26,65 +31,37 @@ class NotificaManager:
                 f"https://api.telegram.org/bot{self.telegram_token}/sendMessage",
                 json=payload, timeout=10
             )
-            r.raise_for_status()
+            if r.status_code >= 400:
+                # Il corpo della risposta spiega il motivo (es. "chat not found",
+                # "bot was blocked by the user", "can't parse entities")
+                print(f"[TELEGRAM] Errore invio a {chat_id}: HTTP {r.status_code} — {r.text[:200]}")
+                return False
+            return True
         except Exception as e:
             print(f"[TELEGRAM] Errore invio a {chat_id}: {e}")
-
-    def notifica_assunzione(self, paziente, farmaco_nome, dose, orario, assunzione_id):
-        """Notifica SOLO al paziente (suo chat_id personale)."""
-        testo = (
-            f"💊 <b>Promemoria farmaco</b>\n\n"
-            f"👤 {paziente['nome']} {paziente['cognome']}\n"
-            f"🔹 <b>{farmaco_nome}</b> — {dose}\n"
-            f"🕐 Orario: <b>{orario}</b>\n\n"
-            f"Hai preso il farmaco?"
-        )
-        keyboard = [[
-            {"text": "✅ SÌ, ho preso", "callback_data": f"SI_{assunzione_id}"},
-            {"text": "❌ Non ancora",   "callback_data": f"NO_{assunzione_id}"},
-        ]]
-        chat_id = paziente.get("telegram_chat_id")
-        if chat_id:
-            # Notifica SOLO al paziente — il caregiver non vede questo messaggio
-            self.invia_telegram(chat_id, testo, keyboard)
-        else:
-            # Paziente senza chat_id — notifica al caregiver come fallback
-            print(f"[TELEGRAM] Paziente {paziente['nome']} senza chat_id, fallback caregiver")
-            for cid in self.chat_ids:
-                self.invia_telegram(cid, testo, keyboard)
-
-    def alert_caregiver(self, paziente, farmaco_nome, orario, tentativi):
-        """Alert SOLO al caregiver dopo max_tentativi senza risposta."""
-        testo = (
-            f"⚠️ <b>ATTENZIONE — Farmaco non confermato</b>\n\n"
-            f"👤 {paziente['nome']} {paziente['cognome']}\n"
-            f"💊 <b>{farmaco_nome}</b>\n"
-            f"🕐 Orario previsto: {orario}\n"
-            f"🔁 Tentativi effettuati: {tentativi}\n\n"
-            f"Il paziente non ha risposto. Verificare di persona."
-        )
-        # Alert SOLO ai chat_id del caregiver — mai al paziente
-        for cid in self.chat_ids:
-            self.invia_telegram(cid, testo)
+            return False
 
     def alert_rifiuto_caregiver(self, paziente, farmaco_nome, orario):
         """Alert al caregiver quando il paziente preme NO."""
         testo = (
             f"❌ <b>Farmaco rifiutato</b>\n\n"
-            f"👤 {paziente['nome']} {paziente['cognome']}\n"
-            f"💊 <b>{farmaco_nome}</b>\n"
-            f"🕐 Orario: {orario}\n\n"
+            f"👤 {_e(paziente['nome'])} {_e(paziente['cognome'])}\n"
+            f"💊 <b>{_e(farmaco_nome)}</b>\n"
+            f"🕐 Orario: {_e(str(orario))}\n\n"
             f"Il paziente ha indicato di non aver preso il farmaco."
         )
         for cid in self.chat_ids:
             self.invia_telegram(cid, testo)
 
-    def notifica_scorta_bassa(self, paziente, farmaco_nome, quantita_rimasta):
+    def notifica_scorta_bassa(self, paziente, farmaco_nome, quantita_rimasta, unita="unità"):
+        """Avviso ai caregiver quando la scorta scende sotto la soglia minima."""
+        if isinstance(quantita_rimasta, float) and quantita_rimasta.is_integer():
+            quantita_rimasta = int(quantita_rimasta)
         testo = (
             f"📦 <b>Scorta in esaurimento</b>\n\n"
-            f"👤 {paziente['nome']} {paziente['cognome']}\n"
-            f"💊 <b>{farmaco_nome}</b>\n"
-            f"📉 Rimanenti: <b>{quantita_rimasta}</b> unità\n\n"
+            f"👤 {_e(paziente['nome'])} {_e(paziente['cognome'])}\n"
+            f"💊 <b>{_e(farmaco_nome)}</b>\n"
+            f"📉 Rimanenti: <b>{_e(str(quantita_rimasta))}</b> {_e(str(unita))}\n\n"
             f"Ricordarsi di rinnovare la prescrizione."
         )
         for cid in self.chat_ids:
@@ -103,7 +80,7 @@ class NotificaManager:
             "Content-Type": "application/json"
         }
         try:
-            requests.post(
+            r = requests.post(
                 f"{self.ha_url}/api/services/notify/alexa_media",
                 headers=headers,
                 json={
@@ -113,6 +90,8 @@ class NotificaManager:
                 },
                 timeout=5
             )
+            if r.status_code >= 400:
+                print(f"[ALEXA] Errore TTS: HTTP {r.status_code} — {r.text[:150]}")
         except Exception as e:
             print(f"[ALEXA] Errore TTS: {e}")
 
@@ -132,13 +111,15 @@ class NotificaManager:
     def notifica_assunzione(self, paziente, farmaco_nome, dose, orario, assunzione_id, modalita="famiglia"):
         """
         Modalità solo: notifica ai chat_ids globali (l'utente è sia paziente che caregiver).
-        Modalità famiglia: notifica SOLO al chat_id personale del paziente.
+        Modalità famiglia: notifica SOLO al chat_id personale del paziente. Se il paziente
+        non ha un chat_id, o Telegram non riesce a consegnare (es. non ha mai premuto /start
+        sul bot), il promemoria viene recapitato al caregiver così non va perso.
         """
         testo = (
             f"💊 <b>Promemoria farmaco</b>\n\n"
-            f"👤 {paziente['nome']} {paziente['cognome']}\n"
-            f"🔹 <b>{farmaco_nome}</b> — {dose}\n"
-            f"🕐 Orario: <b>{orario}</b>\n\n"
+            f"👤 {_e(paziente['nome'])} {_e(paziente['cognome'])}\n"
+            f"🔹 <b>{_e(farmaco_nome)}</b> — {_e(dose)}\n"
+            f"🕐 Orario: <b>{_e(str(orario))}</b>\n\n"
             f"Hai preso il farmaco?"
         )
         keyboard = [[
@@ -150,15 +131,22 @@ class NotificaManager:
             # Utente unico — notifica ai chat_ids globali (è lui stesso)
             for cid in self.chat_ids:
                 self.invia_telegram(cid, testo, keyboard)
+            return
+
+        # Modalità famiglia — solo al chat_id del paziente
+        chat_id = paziente.get("telegram_chat_id")
+        consegnato = bool(chat_id) and self.invia_telegram(chat_id, testo, keyboard)
+        if consegnato:
+            return
+
+        if chat_id:
+            motivo = "il messaggio non è stato consegnato (il paziente deve aprire il bot e premere /start)"
         else:
-            # Modalità famiglia — solo al chat_id del paziente
-            chat_id = paziente.get("telegram_chat_id")
-            if chat_id:
-                self.invia_telegram(chat_id, testo, keyboard)
-            else:
-                print(f"[TELEGRAM] Paziente {paziente['nome']} senza chat_id, fallback caregiver")
-                for cid in self.chat_ids:
-                    self.invia_telegram(cid, testo, keyboard)
+            motivo = "il paziente non ha un Chat ID Telegram configurato"
+        print(f"[TELEGRAM] Paziente {paziente['nome']}: {motivo} — fallback caregiver")
+        testo_fb = f"⚠️ <i>Promemoria inoltrato a te perché {_e(motivo)}.</i>\n\n" + testo
+        for cid in self.chat_ids:
+            self.invia_telegram(cid, testo_fb, keyboard)
 
     def alert_caregiver_completo(self, paziente, farmaco_nome, orario, tentativi, modalita="famiglia"):
         """
@@ -169,17 +157,17 @@ class NotificaManager:
         if modalita == "solo":
             testo = (
                 f"⚠️ <b>Promemoria mancato</b>\n\n"
-                f"💊 <b>{farmaco_nome}</b>\n"
-                f"🕐 Orario: {orario}\n"
+                f"💊 <b>{_e(farmaco_nome)}</b>\n"
+                f"🕐 Orario: {_e(str(orario))}\n"
                 f"🔁 Tentativi: {tentativi}\n\n"
                 f"Non hai ancora confermato l'assunzione."
             )
         else:
             testo = (
                 f"⚠️ <b>ATTENZIONE — Farmaco non confermato</b>\n\n"
-                f"👤 {paziente['nome']} {paziente['cognome']}\n"
-                f"💊 <b>{farmaco_nome}</b>\n"
-                f"🕐 Orario: {orario}\n"
+                f"👤 {_e(paziente['nome'])} {_e(paziente['cognome'])}\n"
+                f"💊 <b>{_e(farmaco_nome)}</b>\n"
+                f"🕐 Orario: {_e(str(orario))}\n"
                 f"🔁 Tentativi: {tentativi}\n\n"
                 f"Il paziente non ha risposto. Verificare di persona."
             )

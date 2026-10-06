@@ -1,6 +1,6 @@
 {
-  "name": "Farmaci Manager",
-  "short_name": "Farmaci",
+  "name": "PillolApp",
+  "short_name": "PillolApp",
   "description": "Gestione farmaci per pazienti cronici",
   "start_url": "/",
   "display": "standalone",

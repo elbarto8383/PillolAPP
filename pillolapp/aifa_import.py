@@ -10,11 +10,11 @@ Uso:
   python3 aifa_import.py --skip-download  # usa solo il dizionario hardcoded
 """
 
+import csv
 import sqlite3
 import os
 import sys
 import re
-import io
 import requests
 
 DB_PATH = os.environ.get("DB_PATH", "/data/farmaci.db")
@@ -121,7 +121,8 @@ FARMACI_OTC = {
     "031630": ("Gabapentin 300mg", "Gabapentin", "N03AX12"),
     "027038": ("Voltaren 75mg", "Diclofenac sodico", "M01AB05"),
     "027039": ("Voltaren 100mg", "Diclofenac sodico", "M01AB05"),
-    "033060": ("Arcoxia 90mg", "Etoricoxib", "M01AH05"),
+    # NB: "033060" era assegnato a due farmaci diversi (Arcoxia 90mg e 60mg): rimosso,
+    # il dato corretto arriva dai CSV AIFA ufficiali.
     "033061": ("Arcoxia 120mg", "Etoricoxib", "M01AH05"),
     "026948": ("Aulin 100mg", "Nimesulide", "M01AX17"),
     "027537": ("Ketoprofene 100mg", "Ketoprofene", "M01AE03"),
@@ -169,7 +170,6 @@ FARMACI_OTC = {
     "034671": ("Eliquis 2.5mg", "Apixaban", "B01AF02"),
     "037441": ("Entresto 100mg", "Sacubitril + Valsartan", "C09DX04"),
     "037442": ("Entresto 200mg", "Sacubitril + Valsartan", "C09DX04"),
-    "033060": ("Arcoxia 60mg", "Etoricoxib", "M01AH05"),
     "028476": ("Ceclor 500mg", "Cefacloro monoidrato", "J01DA06"),
     "024528": ("Rocefin 1g", "Ceftriaxone disodico", "J01DD04"),
     "022881": ("Ronaxan 100mg", "Doxiciclina cloridrato", "J01AA02"),
@@ -198,14 +198,32 @@ def init_tabella(conn):
 
 
 def importa_dizionario_otc(conn):
-    """Importa il dizionario hardcoded dei farmaci OTC/classe C."""
+    """
+    Importa il dizionario hardcoded dei farmaci OTC/classe C.
+
+    I dati dei CSV AIFA ufficiali hanno SEMPRE la precedenza: il dizionario riempie solo
+    i codici mancanti e aggiorna soltanto righe che sono già 'hardcoded'. In passato ad
+    ogni riavvio sovrascriveva anche i dati ufficiali importati dai CSV.
+    """
     count = 0
     for aic, (nome, pa, atc) in FARMACI_OTC.items():
         conn.execute("""
-            INSERT OR REPLACE INTO aifa_lookup (aic, nome, principio_attivo, atc, fonte)
+            INSERT INTO aifa_lookup (aic, nome, principio_attivo, atc, fonte)
             VALUES (?, ?, ?, ?, 'hardcoded')
+            ON CONFLICT(aic) DO UPDATE SET
+                nome = excluded.nome,
+                principio_attivo = excluded.principio_attivo,
+                atc = excluded.atc,
+                aggiornato_il = datetime('now')
+            WHERE aifa_lookup.fonte = 'hardcoded'
         """, (aic, nome, pa, atc))
         count += 1
+    # Elimina le voci 'hardcoded' rimosse dal dizionario (es. codici ambigui corretti)
+    segnaposto = ",".join("?" * len(FARMACI_OTC))
+    conn.execute(
+        f"DELETE FROM aifa_lookup WHERE fonte = 'hardcoded' AND aic NOT IN ({segnaposto})",
+        list(FARMACI_OTC.keys())
+    )
     conn.commit()
     print(f"[AIFA-IMPORT] Dizionario OTC: {count} farmaci importati.")
     return count
@@ -285,13 +303,7 @@ def importa_csv_aifa(conn, source: dict) -> int:
         if not nome or len(nome) < 2:
             continue
 
-        # Non sovrascrivere farmaci OTC hardcoded (hanno fonte='hardcoded')
-        existing = conn.execute(
-            "SELECT fonte FROM aifa_lookup WHERE aic=?", (aic_6,)
-        ).fetchone()
-        if existing and existing[0] == "hardcoded":
-            continue
-
+        # I dati ufficiali AIFA sostituiscono quelli del dizionario hardcoded
         conn.execute("""
             INSERT OR REPLACE INTO aifa_lookup (aic, nome, principio_attivo, atc, fonte)
             VALUES (?, ?, ?, ?, ?)
@@ -320,48 +332,98 @@ def _scarica_csv_in_memoria(source: dict):
     except Exception as e:
         return [], f"Errore download {source['nome']}: {e}"
 
-    try:
-        testo = resp.content.decode("utf-8")
-    except UnicodeDecodeError:
-        try:
-            testo = resp.content.decode("latin-1")
-        except Exception:
-            testo = resp.content.decode("utf-8", errors="replace")
-
-    righe = testo.splitlines()
-    skip  = source.get("skip_righe", 0)
-    righe = righe[skip:]
-
-    import csv as _csv
-    reader = _csv.reader(righe, delimiter=source["separatore"])
-    header = None
-    records = []
-
-    for i, row in enumerate(reader):
-        if i == 0:
-            header = [c.strip() for c in row]
-            continue
-        if not row or not any(row):
-            continue
-        try:
-            idx_aic  = header.index(source["col_aic"])
-            idx_nome = header.index(source["col_nome"])
-            idx_pa   = header.index(source["col_pa"]) if source.get("col_pa") and source["col_pa"] in header else -1
-            idx_atc  = header.index(source["col_atc"]) if source.get("col_atc") and source["col_atc"] in header else -1
-
-            aic  = re.sub(r"[^0-9]", "", row[idx_aic].strip())
-            nome = row[idx_nome].strip()[:200] if len(row) > idx_nome else ""
-            pa   = row[idx_pa].strip()[:200]   if idx_pa >= 0 and len(row) > idx_pa else None
-            atc  = row[idx_atc].strip()[:20]   if idx_atc >= 0 and len(row) > idx_atc else None
-
-            if len(aic) >= 6 and nome:
-                aic_6 = aic[:6] if len(aic) >= 6 else aic
-                records.append((aic_6, nome, pa, atc, source["nome"]))
-        except (ValueError, IndexError):
-            continue
+    records, errore = parse_csv_bytes(resp.content, source)
+    if errore:
+        return [], f"{source['nome']}: {errore}"
 
     print(f"[AIFA-IMPORT] {source['nome']}: {len(records)} record pronti in memoria")
     return records, None
+
+
+# ── Parsing CSV (condiviso tra download automatico e upload manuale) ─────────
+
+def _norm_header(h):
+    return h.replace("﻿", "").strip().strip('"').strip("'").strip().lower()
+
+
+def _trova_colonna(header_norm, nome_col):
+    """Indice della colonna cercata: prima corrispondenza esatta, poi 'contiene'."""
+    if not nome_col:
+        return None
+    cercato = _norm_header(nome_col)
+    if not cercato:
+        return None
+    for i, h in enumerate(header_norm):
+        if h == cercato:
+            return i
+    for i, h in enumerate(header_norm):
+        if h and cercato in h:
+            return i
+    return None
+
+
+def parse_csv_bytes(contenuto: bytes, source: dict):
+    """
+    Legge un CSV AIFA e ritorna (records, errore).
+    records = lista di tuple (aic6, nome, principio_attivo, atc, fonte).
+    Gestisce BOM UTF-8, encoding latin-1, campi tra virgolette che contengono il
+    separatore e, se le colonne non si trovano, prova gli altri separatori comuni.
+    """
+    try:
+        testo = contenuto.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        testo = contenuto.decode("latin-1")
+
+    righe = testo.splitlines()[source.get("skip_righe", 0):]
+    if not righe:
+        return [], "file vuoto"
+
+    separatori = [source.get("separatore", ";")] + [s for s in (";", ",", "\t") if s != source.get("separatore", ";")]
+    header = idx_aic = idx_nome = None
+    sep_usato = None
+    for sep in separatori:
+        header = [_norm_header(c) for c in next(csv.reader([righe[0]], delimiter=sep), [])]
+        idx_aic = _trova_colonna(header, source["col_aic"])
+        idx_nome = _trova_colonna(header, source["col_nome"])
+        if idx_aic is not None and idx_nome is not None:
+            sep_usato = sep
+            break
+    if sep_usato is None:
+        return [], f"colonne '{source['col_aic']}' / '{source['col_nome']}' non trovate (header: {header[:6]})"
+
+    idx_pa = _trova_colonna(header, source.get("col_pa"))
+    idx_atc = _trova_colonna(header, source.get("col_atc"))
+
+    records = []
+    for row in csv.reader(righe[1:], delimiter=sep_usato):
+        if not row or not any(row) or len(row) <= max(idx_aic, idx_nome):
+            continue
+        aic = re.sub(r"[^0-9]", "", row[idx_aic])
+        nome = row[idx_nome].strip()[:200]
+        if len(aic) < 6 or len(nome) < 2:
+            continue
+        pa = row[idx_pa].strip()[:200] if idx_pa is not None and len(row) > idx_pa and row[idx_pa].strip() else None
+        atc = row[idx_atc].strip()[:20] if idx_atc is not None and len(row) > idx_atc and row[idx_atc].strip() else None
+        records.append((aic[:6], nome, pa, atc, source["nome"]))
+    return records, None
+
+
+# Tipi accettati dall'upload manuale → nome della sorgente in CSV_SOURCES
+TIPI_UPLOAD = {
+    "classe_a": "Classe A",
+    "classe_h": "Classe H",
+    "carenti": "Farmaci carenti",
+    "trasparenza": "Lista Trasparenza",
+}
+
+
+def sorgente_per_tipo(tipo: str) -> dict:
+    nome = TIPI_UPLOAD.get(tipo)
+    for s in CSV_SOURCES:
+        if s["nome"] == nome:
+            return s
+    return {"nome": tipo or "Generico", "separatore": ";", "col_aic": "Codice AIC",
+            "col_nome": "Denominazione", "col_pa": "Principio attivo", "col_atc": None}
 
 
 def _inserisci_batch(records: list, fonte: str) -> int:
@@ -404,8 +466,7 @@ def aggiorna_aifa_scheduler(notifica_mgr=None, chat_ids=None):
       2. Apre DB → INSERT batch → chiude subito (< 1 secondo per sorgente)
     Se AIFA risponde 403 manda notifica Telegram al caregiver.
     """
-    import threading
-    print(f"[AIFA-IMPORT] ── Avvio aggiornamento mensile ──")
+    print("[AIFA-IMPORT] ── Avvio aggiornamento mensile ──")
 
     errori = []
     totale = 0
@@ -438,10 +499,10 @@ def aggiorna_aifa_scheduler(notifica_mgr=None, chat_ids=None):
             msg = (
                 f"⚠️ <b>Aggiornamento AIFA parziale</b>\n\n"
                 f"✅ Farmaci aggiornati: {totale}\n"
-                f"❌ Sorgenti non scaricate:\n" + "\n".join(errori) + "\n\n"
-                f"Puoi aggiornarle manualmente con:\n"
-                f"<code>curl -X POST https://farmaci.mabalu.it/api/aifa/upload-csv "
-                f"-F file=@classe_a.csv -F tipo=classe_a</code>"
+                "❌ Sorgenti non scaricate:\n" + "\n".join(errori) + "\n\n"
+                "Puoi aggiornarle manualmente (da loggato come caregiver) con una POST su "
+                f"<code>{os.environ.get('PUBLIC_URL', '').rstrip('/') or 'https://<tuo-dominio>'}/api/aifa/upload-csv</code> "
+                "(campi: file=@classe_a.csv, tipo=classe_a)"
             )
         else:
             msg = (
@@ -455,8 +516,10 @@ def aggiorna_aifa_scheduler(notifica_mgr=None, chat_ids=None):
     return totale
 
 
-def main():
-    skip_download = "--skip-download" in sys.argv
+def main(skip_download=None):
+    """Importa dizionario OTC + (opzionale) CSV AIFA. Senza argomenti legge --skip-download da argv."""
+    if skip_download is None:
+        skip_download = "--skip-download" in sys.argv
 
     # Init tabella con connessione rapida
     conn = sqlite3.connect(DB_PATH, timeout=10)

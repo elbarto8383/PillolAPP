@@ -193,6 +193,11 @@
     return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
   }
 
+// Escape HTML: i nomi dei farmaci/pazienti sono testo libero e finiscono in innerHTML
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
   async function api(path, method='GET', body=null) {
     const opts = { method, headers: {'Content-Type':'application/json'} };
     if (body) opts.body = JSON.stringify(body);
@@ -235,7 +240,7 @@
 
   async function caricaSchermata() {
     document.getElementById('header-nome').textContent =
-      `Ciao, ${paziente.nome}! 👋`;
+      `Ciao, ${esc(paziente.nome)}! 👋`;
 
     // Carica terapie del paziente
     const terapie = await api('/api/terapie/' + PAZIENTE_ID);
@@ -247,12 +252,12 @@
 
     // Card saluto
     let html = `<div class="greeting-card">
-      <div class="greeting-name">${paziente.nome} ${paziente.cognome}</div>
+      <div class="greeting-name">${esc(paziente.nome)} ${esc(paziente.cognome)}</div>
       <div class="greeting-date">📅 ${dataItaliana()}</div>
     </div>`;
 
     // Trova assunzioni pendenti di oggi (± 2 ore dall'orario)
-    const pendenti = log_oggi.filter(a => a.esito === 'PENDENTE');
+    const pendenti = log_oggi.filter(a => (a.esito === 'PENDENTE' || a.esito === 'NO'));
     const da_fare = [];
 
     // Calcola farmaci da prendere ora (entro ±90 min dall'orario)
@@ -274,7 +279,7 @@
             const pend = log_oggi.find(
               a => a.terapia_id == terapia.id &&
                    a.orario_previsto.includes(orario) &&
-                   a.esito === 'PENDENTE'
+                   (a.esito === 'PENDENTE' || a.esito === 'NO')
             );
             da_fare.push({ terapia, orario, assunzione_id: pend?.id || null });
           }
@@ -325,7 +330,7 @@
           <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.75rem;">
             <div class="farmaco-avatar"
               data-farmaco-id="${item.terapia.farmaco_id || ''}"
-              data-nome="${item.terapia.farmaco_nome}"
+              data-nome="${esc(item.terapia.farmaco_nome)}"
               data-immagine-locale="${item.terapia.immagine_locale || ''}"
               data-immagine-url="${item.terapia.immagine_url || ''}"
               data-colore-avatar="${item.terapia.colore_avatar || ''}"
@@ -333,11 +338,11 @@
             </div>
             <div>
               <div class="farmaco-ora">⏰ ${item.orario}</div>
-              <div class="farmaco-nome">${item.terapia.farmaco_nome}</div>
-              <div class="farmaco-dose">${item.terapia.dose}</div>
+              <div class="farmaco-nome">${esc(item.terapia.farmaco_nome)}</div>
+              <div class="farmaco-dose">${esc(item.terapia.dose)}</div>
             </div>
           </div>
-          ${item.terapia.note ? `<div class="farmaco-note">ℹ️ ${item.terapia.note}</div>` : ''}
+          ${item.terapia.note ? `<div class="farmaco-note">ℹ️ ${esc(item.terapia.note)}</div>` : ''}
           ${item.assunzione_id ? `
           <div class="btn-conferma-grid">
             <button class="btn-si" id="btn-si-${item.assunzione_id}"

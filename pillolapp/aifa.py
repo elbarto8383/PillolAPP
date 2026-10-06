@@ -16,7 +16,13 @@ import requests
 import sqlite3
 
 DB_PATH = os.environ.get("DB_PATH", "/data/farmaci.db")
-IMG_DIR = os.path.join(os.path.dirname(__file__), "static", "img")
+# Le foto caricate dall'utente stanno in /data (persistente): dentro /app andrebbero perse
+# ad ogni aggiornamento/rebuild dell'add-on.
+IMG_DIR = os.environ.get("IMG_DIR") or os.path.join(os.path.dirname(DB_PATH), "img")
+URL_IMG_FARMACI = "/media/farmaci"
+
+PLACEHOLDER_PREFIX = "Farmaco AIC"
+TIMEOUT_WEB = 5  # secondi: i lookup online sono best-effort, non devono bloccare la richiesta
 
 AVATAR_COLORS = [
     "#2563eb", "#16a34a", "#d97706", "#dc2626", "#7c3aed",
@@ -28,6 +34,11 @@ HEADERS = {
     "Accept": "application/json, text/html, */*",
     "Accept-Language": "it-IT,it;q=0.9",
 }
+
+
+def e_placeholder(nome: str | None) -> bool:
+    """True se il nome è il segnaposto generico (farmaco non trovato in nessuna fonte)."""
+    return bool(nome) and nome.startswith(PLACEHOLDER_PREFIX)
 
 
 def lookup_aic(aic: str) -> dict | None:
@@ -51,15 +62,18 @@ def lookup_aic(aic: str) -> dict | None:
     if not farmaco:
         farmaco = {
             "aic": aic_farmaco,
-            "nome": f"Farmaco AIC {aic_farmaco}",
-            "nome_commerciale": f"Farmaco AIC {aic_farmaco}",
+            "nome": f"{PLACEHOLDER_PREFIX} {aic_farmaco}",
+            "nome_commerciale": f"{PLACEHOLDER_PREFIX} {aic_farmaco}",
             "principio_attivo": None, "forma_farmaceutica": None,
             "dosaggio": None, "atc": None, "produttore": None,
             "foglietto_url": f"https://medicinali.aifa.gov.it/?aic={aic_farmaco}",
         }
 
-    gtin = _aic_to_gtin(aic_clean)
-    farmaco["immagine_url"]    = cerca_immagine_prodotto(farmaco["nome"], gtin)
+    # Per un farmaco sconosciuto cercare l'immagine per nome non ha senso (e costa secondi di attesa)
+    if e_placeholder(farmaco["nome"]):
+        farmaco["immagine_url"] = None
+    else:
+        farmaco["immagine_url"] = cerca_immagine_prodotto(farmaco["nome"], _aic_to_gtin(aic_clean))
     farmaco["immagine_locale"] = None
     farmaco["colore_avatar"]   = colore_avatar(farmaco["nome"])
     return farmaco
@@ -101,7 +115,7 @@ def _cerca_aifa_online(aic: str) -> dict | None:
     ]
     for url in endpoints:
         try:
-            r = requests.get(url, headers=HEADERS, timeout=8)
+            r = requests.get(url, headers=HEADERS, timeout=TIMEOUT_WEB)
             if r.status_code == 200 and "application/json" in r.headers.get("content-type", ""):
                 data = r.json()
                 farmaco = _parse_json(data, aic)
@@ -160,7 +174,7 @@ def cerca_immagine_prodotto(nome: str, gtin: str | None = None) -> str | None:
 def _opf_per_gtin(gtin):
     try:
         r = requests.get(f"https://world.openproductsfacts.org/api/v2/product/{gtin}",
-                         headers=HEADERS, timeout=8)
+                         headers=HEADERS, timeout=TIMEOUT_WEB)
         return _estrai_immagine(r.json()) if r.status_code == 200 else None
     except Exception: return None
 
@@ -168,7 +182,7 @@ def _opf_per_gtin(gtin):
 def _off_per_gtin(gtin):
     try:
         r = requests.get(f"https://world.openfoodfacts.org/api/v2/product/{gtin}",
-                         headers=HEADERS, timeout=8)
+                         headers=HEADERS, timeout=TIMEOUT_WEB)
         return _estrai_immagine(r.json()) if r.status_code == 200 else None
     except Exception: return None
 
@@ -182,7 +196,7 @@ def _opf_per_nome(nome):
             params={"search_terms": nome_breve, "search_simple": 1,
                     "action": "process", "json": 1, "page_size": 5,
                     "fields": "product_name,image_front_url,image_front_small_url"},
-            headers=HEADERS, timeout=8)
+            headers=HEADERS, timeout=TIMEOUT_WEB)
         for p in r.json().get("products", []):
             img = p.get("image_front_url") or p.get("image_front_small_url")
             if img: return img
@@ -197,13 +211,23 @@ def _estrai_immagine(data):
     return imgs.get("it") or imgs.get("en") or p.get("image_front_url") or p.get("image_url")
 
 
-def salva_immagine_utente(farmaco_id: int, image_bytes: bytes, ext: str = "jpg") -> str:
+def cartella_immagini() -> str:
     cartella = os.path.join(IMG_DIR, "farmaci")
     os.makedirs(cartella, exist_ok=True)
-    filename = f"farmaco_{farmaco_id}.{ext}"
+    return cartella
+
+
+def salva_immagine_utente(farmaco_id: int, image_bytes: bytes, ext: str = "jpg") -> str:
+    cartella = cartella_immagini()
+    # Una sola foto per farmaco: elimina eventuali versioni con altra estensione
+    for altra in ("jpg", "jpeg", "png", "webp"):
+        vecchio = os.path.join(cartella, f"farmaco_{int(farmaco_id)}.{altra}")
+        if altra != ext and os.path.exists(vecchio):
+            os.remove(vecchio)
+    filename = f"farmaco_{int(farmaco_id)}.{ext}"
     with open(os.path.join(cartella, filename), "wb") as f:
         f.write(image_bytes)
-    return f"/static/img/farmaci/{filename}"
+    return f"{URL_IMG_FARMACI}/{filename}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

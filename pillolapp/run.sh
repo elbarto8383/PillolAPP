@@ -20,14 +20,27 @@ export HA_TOKEN=$(jq --raw-output '.ha_token // ""' $CONFIG_PATH)
 export PUBLIC_URL=$(jq --raw-output '.public_url // ""' $CONFIG_PATH)
 export TELEGRAM_BOT_TOKEN=$(jq --raw-output '.telegram_bot_token // ""' $CONFIG_PATH)
 export TELEGRAM_CHAT_IDS=$(jq --raw-output '.telegram_chat_ids // [] | join(",")' $CONFIG_PATH)
-export ALEXA_ABILITATA=$(jq --raw-output '.alexa_abilitata // true' $CONFIG_PATH)
+# NB: con jq "false // true" darebbe sempre true; si controlla esplicitamente il null
+export ALEXA_ABILITATA=$(jq --raw-output 'if .alexa_abilitata == null then true else .alexa_abilitata end' $CONFIG_PATH)
 export ALEXA_ENTITY_ID=$(jq --raw-output '.alexa_entity_id // "media_player.alexa"' $CONFIG_PATH)
 export NOTIFICA_RITARDO_MIN=$(jq --raw-output '.notifica_ritardo_minuti // 15' $CONFIG_PATH)
 export NOTIFICA_MAX_TENTATIVI=$(jq --raw-output '.notifica_max_tentativi // 3' $CONFIG_PATH)
 
-# /data è la cartella privata persistente dell'add-on — sempre scrivibile
-export CAREGIVER_PASSWORD=$(jq --raw-output '.caregiver_password // "PillolApp2026!"' $CONFIG_PATH)
-export SECRET_KEY=$(jq --raw-output '.secret_key // "mabalu-pillolapp-secret-2026-bart"' $CONFIG_PATH)
+# Nessuna password/chiave di default nel codice: se non configurate, l'app genera
+# una password iniziale casuale (mostrata nel log) e la chiave di sessione viene
+# creata una volta sola e conservata in /data, così le sessioni sopravvivono ai riavvii.
+export CAREGIVER_PASSWORD=$(jq --raw-output '.caregiver_password // ""' $CONFIG_PATH)
+export SECRET_KEY=$(jq --raw-output '.secret_key // ""' $CONFIG_PATH)
+case "$SECRET_KEY" in
+    ""|"farmaci-secret-cambia-questo-valore"|"mabalu-pillolapp-secret-2026-bart"|"farmaci-manager-secret-2026-mabalu")
+        if [ ! -s /data/.secret_key ]; then
+            head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > /data/.secret_key
+            chmod 600 /data/.secret_key
+        fi
+        SECRET_KEY=$(cat /data/.secret_key)
+        ;;
+esac
+export SECRET_KEY
 export MODALITA_UTILIZZO=$(jq --raw-output '.modalita_utilizzo // "famiglia"' $CONFIG_PATH)
 export DB_PATH="/data/farmaci.db"
 
@@ -41,8 +54,8 @@ echo "  DB_PATH            = $DB_PATH"
 echo "  RITARDO NOTIFICA   = ${NOTIFICA_RITARDO_MIN} min"
 echo "  MAX TENTATIVI      = $NOTIFICA_MAX_TENTATIVI"
 
-# Crea directory immagini farmaci
-mkdir -p /app/static/img/farmaci
+# Cartella foto confezioni caricate dagli utenti (in /data: persiste agli aggiornamenti)
+mkdir -p /data/img/farmaci
 
 echo "[run.sh] Inizializzazione database farmaci locali..."
 DB_PATH=/data/farmaci.db python3 /app/aifa_import.py --skip-download || echo "[run.sh] Import OTC completato (o già presente)"

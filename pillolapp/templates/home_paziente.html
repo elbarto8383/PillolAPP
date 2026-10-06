@@ -178,6 +178,11 @@ const GIORNI_IT   = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sa
 const MESI_IT     = ['gennaio','febbraio','marzo','aprile','maggio','giugno',
                      'luglio','agosto','settembre','ottobre','novembre','dicembre'];
 
+// Escape HTML: i nomi dei farmaci/pazienti sono testo libero e finiscono in innerHTML
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 async function api(path, method='GET', body=null) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
   if (body) opts.body = JSON.stringify(body);
@@ -222,7 +227,7 @@ async function caricaOggi() {
     const orari    = JSON.parse(t.orari || '[]');
     const assunta  = assunzioni.find(a => a.terapia_id === t.id && a.esito === 'SI');
     const rifiutata= assunzioni.find(a => a.terapia_id === t.id && a.esito === 'NO');
-    const pendente = assunzioni.find(a => a.terapia_id === t.id && a.esito === 'PENDENTE');
+    const pendente = assunzioni.find(a => a.terapia_id === t.id && (a.esito === 'PENDENTE' || a.esito === 'NO'));
     const stato    = assunta ? 'presa' : rifiutata ? 'non-presa' : '';
     const colore   = t.colore_avatar || '#2563eb';
 
@@ -237,15 +242,15 @@ async function caricaOggi() {
     return `<div class="terapia-card ${stato}">
       <div class="flex gap-sm" style="align-items:flex-start;">
         <div class="avatar-circle" style="background:${colore};">
-          ${t.farmaco_nome.substring(0,2).toUpperCase()}
+          ${esc(t.farmaco_nome.substring(0,2).toUpperCase())}
         </div>
         <div style="flex:1;">
-          <div class="terapia-nome">${t.farmaco_nome}</div>
-          <div class="terapia-info">${t.dose}${t.principio_attivo ? ' · ' + t.principio_attivo : ''}</div>
+          <div class="terapia-nome">${esc(t.farmaco_nome)}</div>
+          <div class="terapia-info">${esc(t.dose)}${t.principio_attivo ? ' · ' + esc(t.principio_attivo) : ''}</div>
           <div class="terapia-orari">${orari.map(o=>`<span class="orario-badge">⏰ ${o}</span>`).join('')}</div>
           ${assunta   ? '<div style="color:#16a34a;font-size:0.8rem;margin-top:0.3rem;">✅ Assunto oggi</div>' : ''}
           ${rifiutata ? '<div style="color:#dc2626;font-size:0.8rem;margin-top:0.3rem;">❌ Non assunto</div>' : ''}
-          ${t.note    ? `<div style="color:#94a3b8;font-size:0.75rem;margin-top:0.3rem;">ℹ️ ${t.note}</div>` : ''}
+          ${t.note    ? `<div style="color:#94a3b8;font-size:0.75rem;margin-top:0.3rem;">ℹ️ ${esc(t.note)}</div>` : ''}
           ${btnConferma}
         </div>
       </div>
@@ -274,10 +279,10 @@ async function caricaTutte() {
       : 'Tutti i giorni';
     return `<li class="item-row">
       <div class="item-icon" style="background:${colore};color:white;font-weight:700;font-size:0.75rem;">
-        ${t.farmaco_nome.substring(0,2).toUpperCase()}</div>
+        ${esc(t.farmaco_nome.substring(0,2).toUpperCase())}</div>
       <div class="item-body">
-        <div class="item-title">${t.farmaco_nome}</div>
-        <div class="item-meta">${t.dose} · ${orari.map(o=>'⏰'+o).join(' ')}</div>
+        <div class="item-title">${esc(t.farmaco_nome)}</div>
+        <div class="item-meta">${esc(t.dose)} · ${orari.map(o=>'⏰'+o).join(' ')}</div>
         <div class="item-meta" style="font-size:0.75rem;">${gl}</div>
       </div>
     </li>`;
@@ -293,8 +298,8 @@ async function caricaScorte() {
     return `<li class="item-row">
       <div class="item-icon ${bassa ? 'red' : 'green'}">${bassa ? '⚠️' : '💊'}</div>
       <div class="item-body">
-        <div class="item-title">${s.farmaco_nome}</div>
-        <div class="item-meta">${s.quantita} ${s.unita} rimaste
+        <div class="item-title">${esc(s.farmaco_nome)}</div>
+        <div class="item-meta">${s.quantita} ${esc(s.unita)} rimaste
           ${s.scadenza ? ' · scade: ' + s.scadenza : ''}
           ${bassa ? ' · <span style="color:#dc2626">SCORTA BASSA</span>' : ''}
         </div>

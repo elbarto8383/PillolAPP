@@ -10,7 +10,38 @@ def get_db():
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")   # permette letture/scritture concorrenti
     conn.execute("PRAGMA busy_timeout = 10000") # aspetta fino a 10s se DB occupato
+    _registra_connessione_richiesta(conn)
     return conn
+
+
+def _registra_connessione_richiesta(conn):
+    """
+    Se siamo dentro una richiesta Flask, ricorda la connessione: se la route
+    solleva un'eccezione prima di db.close(), la connessione resterebbe aperta
+    con una transazione di scrittura pendente e bloccherebbe tutte le altre
+    richieste ("database is locked"). Il teardown la chiude comunque.
+    """
+    try:
+        from flask import g, has_request_context
+        if has_request_context():
+            if "_db_conns" not in g:
+                g._db_conns = []
+            g._db_conns.append(conn)
+    except Exception:
+        pass
+
+
+def chiudi_connessioni_richiesta(exc=None):
+    """Da registrare con app.teardown_request: chiude (e annulla) le connessioni rimaste aperte."""
+    try:
+        from flask import g
+        for conn in g.pop("_db_conns", []):
+            try:
+                conn.close()
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 
 def init_db():
@@ -179,6 +210,10 @@ def init_db():
             creato_il   TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
+
+    # Indici per le query più frequenti (scheduler, log assunzioni, scorte)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_assunzioni_slot ON assunzioni(terapia_id, orario_previsto)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_terapie_paziente ON terapie(paziente_id, attiva)")
 
     conn.commit()
     conn.close()

@@ -259,6 +259,11 @@
     if (name === 'astuccio') caricaAstuccioPaz();
   }
 
+// Escape HTML: i nomi dei farmaci/pazienti sono testo libero e finiscono in innerHTML
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
   async function api(path, method='GET', body=null) {
     const opts = { method, headers: {'Content-Type':'application/json'} };
     if (body) opts.body = JSON.stringify(body);
@@ -284,7 +289,7 @@
   async function caricaOggi() {
     const d = new Date();
     document.getElementById('saluto-nome').textContent =
-      `Ciao, ${PAZIENTE.nome}!`;
+      `Ciao, ${esc(PAZIENTE.nome)}!`;
     document.getElementById('saluto-data').textContent =
       `${GIORNI_IT[d.getDay() === 0 ? 6 : d.getDay()-1]} ${d.getDate()} ${MESI_IT[d.getMonth()]}`;
 
@@ -305,7 +310,7 @@
         const giaPresa = log.find(a => a.terapia_id == t.id &&
           a.orario_previsto.includes(o) && a.esito === 'SI');
         const pend = log.find(a => a.terapia_id == t.id &&
-          a.orario_previsto.includes(o) && a.esito === 'PENDENTE');
+          a.orario_previsto.includes(o) && (a.esito === 'PENDENTE' || a.esito === 'NO'));
 
         cards.push({
           terapia: t, orario: o, minOra,
@@ -332,7 +337,7 @@
         <div style="display:flex;align-items:center;gap:0.85rem;margin-bottom:0.6rem;">
           <div class="farmaco-avatar"
             data-farmaco-id="${c.terapia.farmaco_id || ''}"
-            data-nome="${c.terapia.farmaco_nome}"
+            data-nome="${esc(c.terapia.farmaco_nome)}"
             data-immagine-locale="${c.terapia.immagine_locale || ''}"
             data-immagine-url="${c.terapia.immagine_url || ''}"
             data-colore-avatar="${c.terapia.colore_avatar || ''}"
@@ -345,8 +350,8 @@
                 c.futuro ? '<span class="badge badge-gray">In arrivo</span>' :
                 '<span class="badge badge-info">Da confermare</span>'}
             </div>
-            <div style="font-size:1rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.terapia.farmaco_nome}</div>
-            <div style="color:#64748b;font-size:0.9rem">${c.terapia.dose}</div>
+            <div style="font-size:1rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.terapia.farmaco_nome)}</div>
+            <div style="color:#64748b;font-size:0.9rem">${esc(c.terapia.dose)}</div>
           </div>
         </div>
         ${!c.presa && !c.futuro && c.assunzione_id ? `
@@ -380,7 +385,7 @@
       return `<li class="item-row">
         <div class="farmaco-avatar"
           data-farmaco-id="${t.farmaco_id}"
-          data-nome="${t.farmaco_nome}"
+          data-nome="${esc(t.farmaco_nome)}"
           data-immagine-locale="${t.immagine_locale || ''}"
           data-immagine-url="${t.immagine_url || ''}"
           data-colore-avatar="${t.colore_avatar || ''}"
@@ -388,12 +393,12 @@
           data-size="48">
         </div>
         <div class="item-body">
-          <div class="item-title">${t.farmaco_nome}</div>
-          <div class="item-meta">${t.dose}</div>
+          <div class="item-title">${esc(t.farmaco_nome)}</div>
+          <div class="item-meta">${esc(t.dose)}</div>
           <div class="orari-list mt-sm">
             ${orari.map(o => `<span class="orario-pill">⏰ ${o}</span>`).join('')}
           </div>
-          ${t.note ? `<div class="text-sm text-muted mt-sm">ℹ️ ${t.note}</div>` : ''}
+          ${t.note ? `<div class="text-sm text-muted mt-sm">ℹ️ ${esc(t.note)}</div>` : ''}
         </div>
         <button class="btn btn-ghost btn-icon" onclick="eliminaTerapia(${t.id})">🗑️</button>
       </li>`;
@@ -513,8 +518,8 @@
       return `<li class="item-row">
         <div class="item-icon ${bassa ? 'red' : 'green'}">${bassa ? '⚠️' : '💊'}</div>
         <div class="item-body">
-          <div class="item-title">${s.farmaco_nome}</div>
-          <div class="item-meta">${s.quantita} ${s.unita} · ${bassa ? '⚠️ Scorta bassa' : 'OK'}</div>
+          <div class="item-title">${esc(s.farmaco_nome)}</div>
+          <div class="item-meta">${s.quantita} ${esc(s.unita)} · ${bassa ? '⚠️ Scorta bassa' : 'OK'}</div>
           <div style="background:var(--gray-100);border-radius:4px;height:5px;margin-top:6px">
             <div style="background:${bassa?'var(--danger)':'var(--success)'};width:${pct}%;height:100%;border-radius:4px"></div>
           </div>

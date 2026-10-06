@@ -4,5 +4,3 @@ flask-login==0.6.3
 APScheduler==3.10.4
 requests==2.32.3
 pytesseract==0.3.10
-Pillow==10.4.0
-python-telegram-bot==21.5
