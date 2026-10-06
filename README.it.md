@@ -117,8 +117,8 @@
 | `notifica_ritardo_minuti` | Minuti tra un tentativo e l'altro | `15` |
 | `notifica_max_tentativi` | Numero massimo di tentativi | `3` |
 | `modalita_utilizzo` | `solo` o `famiglia` | `famiglia` |
-| `caregiver_password` | Password accesso caregiver | `LatuaPassword!` |
-| `secret_key` | Chiave segreta sessioni Flask | `stringa-casuale-lunga` |
+| `caregiver_password` | Password iniziale del caregiver (vuota = generata e scritta nel log) | `LatuaPassword!` |
+| `secret_key` | Chiave dei cookie di sessione (vuota = generata automaticamente, consigliato) | *(vuoto)* |
 
 ### 4. Configura Nginx
 
@@ -137,7 +137,7 @@ server {
         connect-src 'self' https:;
         font-src 'self' data:;
         worker-src 'self' blob:;
-        frame-ancestors 'none';
+        frame-ancestors 'self' http://192.168.1.83:8123;
     " always;
 
     location / {

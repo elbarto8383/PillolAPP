@@ -117,8 +117,8 @@
 | `notifica_ritardo_minuti` | Minutes between retry attempts | `15` |
 | `notifica_max_tentativi` | Maximum number of attempts | `3` |
 | `modalita_utilizzo` | `solo` or `famiglia` | `famiglia` |
-| `caregiver_password` | Caregiver login password | `YourPassword!` |
-| `secret_key` | Flask session secret key | `long-random-string` |
+| `caregiver_password` | Initial caregiver password (empty = generated and printed in the log) | `YourPassword!` |
+| `secret_key` | Session cookie key (empty = auto-generated, recommended) | *(empty)* |
 
 ### 4. Nginx Configuration
 
@@ -137,7 +137,7 @@ server {
         connect-src 'self' https:;
         font-src 'self' data:;
         worker-src 'self' blob:;
-        frame-ancestors 'none';
+        frame-ancestors 'self' http://192.168.1.83:8123;
     " always;
 
     location / {
