@@ -49,6 +49,45 @@ app.config["REMEMBER_COOKIE_HTTPONLY"] = True
 WEBHOOK_SECRET = hmac.new(_secret.encode(), b"pillolapp-telegram-webhook", hashlib.sha256).hexdigest()[:48]
 WEBHOOK_SEGRETO_ATTIVO = False   # diventa True solo dopo una registrazione riuscita con secret_token
 
+# Dietro nginx/Cloudflare il TLS termina sul proxy: ci si fida solo di X-Forwarded-Proto
+# (serve a riconoscere le richieste https e a marcare i cookie di conseguenza).
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+
+class CookieIframeMiddleware:
+    """
+    La dashboard di Home Assistant (http://IP:8123) incorpora la pagina in un iframe su un
+    altro sito (https://farmaci...): per il browser sono cookie "di terze parti" e col
+    SameSite predefinito vengono scartati, quindi il login non regge. Su connessioni https
+    i cookie escono come SameSite=None; Secure; Partitioned (CHIPS). Lo si fa a livello WSGI
+    perché Flask scrive il cookie di sessione DOPO gli handler after_request.
+    """
+    def __init__(self, wsgi):
+        self.wsgi = wsgi
+
+    def __call__(self, environ, start_response):
+        if environ.get("wsgi.url_scheme") != "https":
+            return self.wsgi(environ, start_response)
+
+        def _start(status, headers, exc_info=None):
+            nuovi = []
+            for nome, valore in headers:
+                if nome.lower() == "set-cookie":
+                    basso = valore.lower()
+                    if "samesite" not in basso:
+                        valore += "; SameSite=None"
+                    if "; secure" not in basso:
+                        valore += "; Secure"
+                    if "; partitioned" not in basso:
+                        valore += "; Partitioned"
+                nuovi.append((nome, valore))
+            return start_response(status, nuovi, exc_info)
+
+        return self.wsgi(environ, _start)
+
+
+app.wsgi_app = ProxyFix(CookieIframeMiddleware(app.wsgi_app), x_proto=1)
+
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.teardown_request(chiudi_connessioni_richiesta)
 
