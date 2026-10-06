@@ -1,14 +1,11 @@
 name: "PillolAPP"
 description: "Gestione farmaci per pazienti cronici — promemoria Telegram + Alexa, scorte, astuccio settimanale. Modalità solo o famiglia."
-version: "2.1.0"
+version: "2.1.1"
 slug: "pillolapp"
 init: false
 arch:
   - aarch64
   - amd64
-  - armhf
-  - armv7
-  - i386
 
 homeassistant_api: true
 hassio_api: false
